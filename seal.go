@@ -1,7 +1,7 @@
 package seal
 
 import (
-	"fmt"
+	"bytes"
 	"html/template"
 	"io/fs"
 	"log"
@@ -11,13 +11,22 @@ import (
 	"strings"
 )
 
-type Ext func(filecontent []byte) string
+type Ext func(dirpath string, filecontent []byte, tmpl *template.Template) error
 
 type HandlerGen func(filecontent []byte) Handler
 
 type Handler func(dir *Dir, reqpath *[]string, w http.ResponseWriter, r *http.Request)
 
 var errExecuteTemplate = template.Must(template.New("").Parse(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error executing template: {{.}}</p>`))
+
+var errParsingTemplate = template.Must(template.New("").Parse(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error parsing template: {{.}}</p>`))
+
+// execErrParsingTemplate safely wraps the error into an html string
+func execErrParsingTemplate(err error) string {
+	var buf bytes.Buffer
+	errParsingTemplate.Execute(&buf, err)
+	return buf.String()
+}
 
 func handleTemplate(dir *Dir, _ *[]string, w http.ResponseWriter, r *http.Request) {
 	err := dir.Template.ExecuteTemplate(w, "html", nil)
@@ -92,35 +101,14 @@ func (s *Seal) LoadDir(parentTmpl *template.Template, fspath string) (*Dir, erro
 		if err != nil {
 			return nil, err
 		}
-		htm := fn(filecontent)
 
-		// We want to create links and embed images which are relative to a directory.
-		//
-		// Rewriting <a href="..."> and <img src="..."> is hard because:
-		// Execution puts templates from different directories together.
-		// So we can only manipulate them before execution, leaving two options:
-		// Parsing as HTML would be hard because the renderer would escape quotes in template actions.
-		// Modifying the template parse tree would also be hard because it does not parse HTML.
-		//
-		// Instead, let's pass the directory to the template through a variable $dir.
-		// We have to inject the template action before parsing, else parsing fails when trying to access $dir.
-		// This does only work for the main template, not for {{define}}'d templates.
 		dirpath := strings.TrimSuffix(path.Join("/", fspath), "/") // root becomes "", so the html code can append "/" without getting "//"
-		htm = `{{$dir := "` + dirpath + `"}}` + "\n" + htm
-
 		tmplName := strings.TrimSuffix(entry.Name(), ext)
-		ts, err := template.New(tmplName).Parse(htm)
-		if err != nil {
-			ts, _ = template.New(tmplName).Parse(fmt.Sprintf(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error parsing template: %v</p>`, err))
-		}
+		tmpl := templates.New(tmplName)
 
-		for _, t := range ts.Templates() {
-			if t.Tree != nil {
-				_, err := templates.AddParseTree(t.Name(), t.Tree) // returned template has t.Name() and t.Tree, does not matter because the template set is the same
-				if err != nil {
-					log.Println(err)
-				}
-			}
+		err = fn(dirpath, filecontent, tmpl)
+		if err != nil {
+			tmpl.Parse(execErrParsingTemplate(err))
 		}
 	}
 

@@ -12,10 +12,8 @@ func main() {
 	s = seal.Seal{
 		Fsys: os.DirFS("."),
 		Exts: map[string]seal.Ext{
-			".md": ext.Commonmark,
-			".html": func(bs []byte) string {
-				return string(bs)
-			},
+			".html": ext.Html,
+			".md":   ext.Commonmark,
 		},
 		Filenames: map[string]seal.HandlerGen{
 			"redirect": seal.Redirect,

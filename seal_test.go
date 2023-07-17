@@ -39,15 +39,16 @@ var testFS = fstest.MapFS{
 	"redirect-relative-path/redirect": &fstest.MapFile{
 		Data: []byte("path"),
 	},
+	"nested-definitions/foo.html": &fstest.MapFile{
+		Data: []byte(`This is ignored. {{define "main"}}This is main.{{end}}`),
+	},
 }
 
 var s = Seal{
 	Fsys: testFS,
 	Exts: map[string]Ext{
-		".md": ext.Commonmark,
-		".html": func(bs []byte) string {
-			return string(bs)
-		},
+		".html": ext.Html,
+		".md":   ext.Commonmark,
 	},
 	Filenames: map[string]HandlerGen{
 		"redirect": Redirect,
@@ -77,6 +78,7 @@ func TestSeal(t *testing.T) {
 		{input: "/redirect-absolute-url", want: `<a href="https://example.com">See Other</a>.`},
 		{input: "/redirect-absolute-path", want: `<a href="/path">See Other</a>.`},
 		{input: "/redirect-relative-path", want: `<a href="/redirect-relative-path/path">See Other</a>.`},
+		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
 	}
 
 	// don't follow redirects

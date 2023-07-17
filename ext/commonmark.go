@@ -1,9 +1,18 @@
 package ext
 
-import "gitlab.com/golang-commonmark/markdown"
+import (
+	"html/template"
+	"regexp"
+
+	"gitlab.com/golang-commonmark/markdown"
+)
 
 var commonmark = markdown.New(markdown.HTML(true), markdown.Linkify(true), markdown.Typographer(true), markdown.MaxNesting(10))
 
-func Commonmark(input []byte) string {
-	return commonmark.RenderToString(input)
+var templateCmd = regexp.MustCompile("\\{([a-z-]{1,32})\\}")
+
+func Commonmark(dirpath string, input []byte, tmpl *template.Template) error {
+	s := commonmark.RenderToString(input)
+	s = templateCmd.ReplaceAllString(s, `{{template "$1" .}}`)
+	return Html(dirpath, []byte(s), tmpl)
 }
