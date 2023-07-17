@@ -17,10 +17,12 @@ type HandlerGen func(filecontent []byte) Handler
 
 type Handler func(dir *Dir, reqpath *[]string, w http.ResponseWriter, r *http.Request)
 
+var errExecuteTemplate = template.Must(template.New("").Parse(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error executing template: {{.}}</p>`))
+
 func handleTemplate(dir *Dir, _ *[]string, w http.ResponseWriter, r *http.Request) {
 	err := dir.Template.ExecuteTemplate(w, "html", nil)
 	if err != nil {
-		log.Println(err)
+		errExecuteTemplate.Execute(w, err)
 	}
 }
 
