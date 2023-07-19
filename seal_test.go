@@ -46,7 +46,7 @@ var testFS = fstest.MapFS{
 
 var s = Seal{
 	Fsys: testFS,
-	Exts: map[string]Ext{
+	FileExts: map[string]TemplateGen{
 		".html": ext.Html,
 		".md":   ext.Commonmark,
 	},

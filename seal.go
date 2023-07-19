@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-type Ext func(dirpath string, filecontent []byte, tmpl *template.Template) error
+type TemplateGen func(dirpath string, filecontent []byte, tmpl *template.Template) error
 
 type HandlerGen func(filecontent []byte) Handler
 
@@ -38,9 +38,9 @@ func handleTemplate(dir *Dir, _ *[]string, w http.ResponseWriter, r *http.Reques
 // Seal is both the configuration and the http handler. This is because Filenames["update"] modifies the DirHandler.
 type Seal struct {
 	Fsys      fs.FS
-	Exts      map[string]Ext        // key: file extension, e.g. ".md"
-	Filenames map[string]HandlerGen // key: file name, e.g. "redirect"
-	Params    map[string]Handler    // key: directory name, e.g. "{date}"
+	FileExts  map[string]TemplateGen
+	Filenames map[string]HandlerGen
+	Params    map[string]Handler // key: directory name, e.g. "{date}"
 
 	RootHandler DirHandler
 }
@@ -87,10 +87,10 @@ func (s *Seal) LoadDir(parentTmpl *template.Template, fspath string) (*Dir, erro
 			continue
 		}
 
-		// Exts
+		// FileExts
 
 		ext := filepath.Ext(entry.Name())
-		fn, ok := s.Exts[ext]
+		fn, ok := s.FileExts[ext]
 		if !ok {
 			continue
 		}

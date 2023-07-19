@@ -11,7 +11,7 @@ func main() {
 	var s seal.Seal
 	s = seal.Seal{
 		Fsys: os.DirFS("."),
-		Exts: map[string]seal.Ext{
+		FileExts: map[string]seal.TemplateGen{
 			".html": ext.Html,
 			".md":   ext.Commonmark,
 		},
