@@ -9,6 +9,9 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"golang.org/x/time/rate"
 )
 
 type TemplateGen func(dirpath string, filecontent []byte, tmpl *template.Template) error
@@ -158,14 +161,24 @@ func (s *Seal) Update() {
 	s.RootHandler.Root = root
 }
 
+// not in UpdateHandler because UpdateHandler is recreated on update
+var updateHandlerLimiter = rate.NewLimiter(rate.Every(time.Minute), 2)
+
 func (s *Seal) UpdateHandler(filecontent []byte) Handler {
 	// most webhooks are POST
 	secret := strings.TrimSpace(string(filecontent))
 	return func(dir *Dir, reqpath *[]string, w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("secret") == secret {
-			s.Update()
+			if updateHandlerLimiter.Allow() {
+				s.Update()
+				w.Write([]byte("ok"))
+			} else {
+				w.WriteHeader(http.StatusTooManyRequests)
+				w.Write([]byte("too many requests"))
+			}
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("unauthorized"))
 		}
 	}
 }

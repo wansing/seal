@@ -2,7 +2,10 @@ module github.com/wansing/seal
 
 go 1.20
 
-require gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a
+require (
+	gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a
+	golang.org/x/time v0.3.0
+)
 
 require (
 	gitlab.com/golang-commonmark/html v0.0.0-20191124015941-a22733972181 // indirect
