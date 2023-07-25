@@ -2,12 +2,18 @@ package main
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/wansing/seal"
 	"github.com/wansing/seal/ext"
 )
 
 func main() {
+	httpPort, err := strconv.Atoi(os.Getenv("HTTP_PORT"))
+	if err != nil || httpPort < 1 || httpPort > 65535 {
+		httpPort = 8080
+	}
+
 	var s seal.Seal
 	s = seal.Seal{
 		Fsys: os.DirFS("."),
@@ -24,5 +30,5 @@ func main() {
 		},
 	}
 
-	s.ListenAndServe("127.0.0.1:8081")
+	s.ListenAndServe("127.0.0.1:" + strconv.Itoa(httpPort))
 }
