@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/mattn/go-isatty"
 	"github.com/wansing/seal"
 	"github.com/wansing/seal/ext"
 )
@@ -28,6 +29,10 @@ func main() {
 		Params: map[string]seal.Handler{
 			// TODO
 		},
+	}
+
+	if !isatty.IsTerminal(os.Stdout.Fd()) {
+		s.Filenames["git-update"] = s.GitUpdateHandler
 	}
 
 	s.ListenAndServe("127.0.0.1:" + strconv.Itoa(httpPort))
