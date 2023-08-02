@@ -3,6 +3,7 @@ package seal
 import (
 	"bytes"
 	"html/template"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -32,11 +33,9 @@ func execErrParsingTemplate(err error) string {
 	return buf.String()
 }
 
+// default handler
 func handleTemplate(dir *Dir, _ *[]string, w http.ResponseWriter, r *http.Request) {
-	err := dir.Template.ExecuteTemplate(w, "html", nil)
-	if err != nil {
-		errExecuteTemplate.Execute(w, err)
-	}
+	dir.ExecuteTemplate(w)
 }
 
 // Seal is both the configuration and the http handler. This is because Filenames["update"] modifies the DirHandler.
@@ -288,4 +287,11 @@ type Dir struct {
 	// handling
 	Handler  Handler
 	Template *template.Template // Contains templates from parent directories. Don't hide in Handler, may need it later.
+}
+
+func (dir *Dir) ExecuteTemplate(w io.Writer) {
+	err := dir.Template.ExecuteTemplate(w, "html", nil)
+	if err != nil {
+		errExecuteTemplate.Execute(w, err)
+	}
 }
