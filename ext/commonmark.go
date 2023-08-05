@@ -9,7 +9,7 @@ import (
 
 var commonmark = markdown.New(markdown.HTML(true), markdown.Linkify(true), markdown.Typographer(true), markdown.MaxNesting(10))
 
-var templateCmd = regexp.MustCompile("\\{([a-z-]{1,32})\\}")
+var templateCmd = regexp.MustCompile(`\{([a-z-]{1,32})\}`)
 
 func Commonmark(dirpath string, input []byte, tmpl *template.Template) error {
 	s := commonmark.RenderToString(input)
