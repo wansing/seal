@@ -14,9 +14,9 @@ import (
 
 type TemplateGen func(dirpath string, filecontent []byte, tmpl *template.Template) error
 
-type HandlerGen func(filecontent []byte) Handler
+type HandlerGen func(dir *Dir, filecontent []byte) Handler
 
-type Handler func(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request)
+type Handler func(reqpath []string, w http.ResponseWriter, r *http.Request)
 
 var errExecuteTemplate = template.Must(template.New("").Parse(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error executing template: {{.}}</p>`))
 
@@ -29,16 +29,18 @@ func execErrParsingTemplate(err error) string {
 	return buf.String()
 }
 
-// handleTemplate is the default handler. If the request path has been consumed, it executes dir.Template. Else it calls handleNext.
-func handleTemplate(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request) {
-	if len(reqpath) == 0 {
-		if dir.TemplateDiffers {
-			dir.ExecuteTemplate(w)
+// Template returns a Handler which executes dir.Template if the request path has been consumed. Else it calls handleNext.
+func Template(dir *Dir, _ []byte) Handler {
+	return func(reqpath []string, w http.ResponseWriter, r *http.Request) {
+		if len(reqpath) == 0 {
+			if dir.TemplateDiffers {
+				dir.ExecuteTemplate(w, "html")
+			} else {
+				http.NotFound(w, r) // would be duplicate content
+			}
 		} else {
-			http.NotFound(w, r) // would be duplicate content
+			handleNext(dir, reqpath, w, r)
 		}
-	} else {
-		handleNext(dir, reqpath, w, r)
 	}
 }
 
@@ -51,7 +53,7 @@ func handleNext(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Reque
 	next, ok := dir.Subdirs[reqpath[0]]
 	if ok {
 		reqpath = reqpath[1:]
-		next.Handler(next, reqpath, w, r)
+		next.Handler(reqpath, w, r)
 	} else {
 		if r.Method == http.MethodGet && dir.Files != nil {
 			dir.Files.ServeHTTP(w, r)
@@ -83,10 +85,11 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 		return nil, err
 	}
 
-	// files first, build templates
+	// files
+	var handlerGen HandlerGen
+	var handlerGenFilecontent []byte
 	var templates, _ = parentTmpl.Clone()
-	var filenameHandler Handler
-	var templateDiffers bool
+	var templateDiffers = false
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -101,7 +104,8 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 			if err != nil {
 				return nil, err
 			}
-			filenameHandler = gen(filecontent)
+			handlerGen = gen // don't call gen() here because Dir is not complete yet
+			handlerGenFilecontent = filecontent
 			continue
 		}
 
@@ -146,23 +150,26 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 		subdirs[entry.Name()] = subdir
 	}
 
-	var handler Handler = handleTemplate
-	if filenameHandler != nil {
-		handler = filenameHandler // overwrite handleTemplate
-	}
-
-	return &Dir{
+	// without Dir.Handler
+	dir := &Dir{
 		Files:           http.FileServer(http.FS(config.Fsys)), // same for each Dir, better use ServeFileFS when it's in the standard library
 		Subdirs:         subdirs,
-		Handler:         handler,
 		Template:        templates,
 		TemplateDiffers: templateDiffers,
-	}, nil
+	}
+
+	if handlerGen != nil {
+		dir.Handler = handlerGen(dir, handlerGenFilecontent) // overwrite handleTemplate
+	} else {
+		dir.Handler = Template(dir, nil)
+	}
+
+	return dir, nil
 }
 
 // for embedding content (e.g. blog post preview) without executing their other (redirect etc.) handlers
-func (dir *Dir) ExecuteTemplate(w io.Writer) {
-	err := dir.Template.ExecuteTemplate(w, "html", dir)
+func (dir *Dir) ExecuteTemplate(w io.Writer, name string) {
+	err := dir.Template.ExecuteTemplate(w, name, dir)
 	if err != nil {
 		errExecuteTemplate.Execute(w, err)
 	}
@@ -189,5 +196,5 @@ func (srv *Server) ListenAndServe(addr string) {
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.URL.Path = path.Clean(r.URL.Path)
 	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
-	srv.Root.Handler(srv.Root, reqpath, w, r)
+	srv.Root.Handler(reqpath, w, r)
 }

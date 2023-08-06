@@ -21,9 +21,9 @@ func (srv *Server) Update() {
 	srv.Root = root
 }
 
-func (srv *Server) UpdateHandler(filecontent []byte) Handler {
+func (srv *Server) UpdateHandler(_ *Dir, filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
-	return func(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request) {
+	return func(reqpath []string, w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("secret") != secret {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("unauthorized"))
@@ -43,9 +43,9 @@ func (srv *Server) UpdateHandler(filecontent []byte) Handler {
 //
 // We can't distinguish between local commits (which should be kept) and remote history rewerites (which can be dropped).
 // Thus it accepts POST requests only and skips if there are local changes. You should not use it in interactive terminals and know "git reflog".
-func (srv *Server) GitUpdateHandler(filecontent []byte) Handler {
+func (srv *Server) GitUpdateHandler(_ *Dir, filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
-	return func(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request) {
+	return func(reqpath []string, w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Write([]byte("method not allowed"))
