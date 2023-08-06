@@ -44,19 +44,21 @@ var testFS = fstest.MapFS{
 	},
 }
 
-var s = Seal{
-	Fsys: testFS,
-	FileExts: map[string]TemplateGen{
-		".html": ext.Html,
-		".md":   ext.Commonmark,
-	},
-	Filenames: map[string]HandlerGen{
-		"redirect": Redirect,
+var srv = &Server{
+	Conf: Config{
+		Fsys: testFS,
+		FileExts: map[string]TemplateGen{
+			".html": ext.Html,
+			".md":   ext.Commonmark,
+		},
+		Filenames: map[string]HandlerGen{
+			"redirect": Redirect,
+		},
 	},
 }
 
 func TestSeal(t *testing.T) {
-	go s.ListenAndServe("127.0.0.1:8081")
+	go srv.ListenAndServe("127.0.0.1:8081")
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -107,7 +109,7 @@ func TestUpdate(t *testing.T) {
 		Data: []byte(`# Updated`),
 	}
 
-	s.Update()
+	srv.Update()
 	time.Sleep(100 * time.Millisecond)
 
 	input := "/"

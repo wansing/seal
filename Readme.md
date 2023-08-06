@@ -3,11 +3,9 @@
 Some kind of experimental headless filesystem-based content management system.
 
 * File without extension: registers a handler (maximum one per directory)
-  * Default handler: render template
+  * Default handler: follow route (by directory names), render template if remaining path is empty
+  * First handler is executed (routing is left to the handler)
 * File with extension: is converted to html, then parsed as a template
-* Directory with a plain name: becomes a part of the route
-* Directory with a `{parameter}` name: registers a middleware (maximum one per parent directory)
-  * Difference to handler: execution continues after middleware returns. Don't want that? Use a handler instead.
 
 ## Notes
 

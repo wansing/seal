@@ -13,17 +13,17 @@ import (
 // not in UpdateHandler because UpdateHandler is called on each update
 var updateHandlerLimiter = rate.NewLimiter(rate.Every(time.Minute), 2)
 
-func (s *Seal) Update() {
-	root, err := s.LoadDir(nil, ".")
+func (srv *Server) Update() {
+	root, err := LoadDir(srv.Conf, nil, ".")
 	if err != nil {
 		log.Printf("error loading directory: %v", err)
 	}
-	s.RootHandler.Root = root
+	srv.Root = root
 }
 
-func (s *Seal) UpdateHandler(filecontent []byte) Handler {
+func (srv *Server) UpdateHandler(filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
-	return func(dir *Dir, reqpath *[]string, w http.ResponseWriter, r *http.Request) {
+	return func(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("secret") != secret {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("unauthorized"))
@@ -34,7 +34,7 @@ func (s *Seal) UpdateHandler(filecontent []byte) Handler {
 			w.Write([]byte("too many requests"))
 			return
 		}
-		s.Update()
+		srv.Update()
 		w.Write([]byte("ok"))
 	}
 }
@@ -43,9 +43,9 @@ func (s *Seal) UpdateHandler(filecontent []byte) Handler {
 //
 // We can't distinguish between local commits (which should be kept) and remote history rewerites (which can be dropped).
 // Thus it accepts POST requests only and skips if there are local changes. You should not use it in interactive terminals and know "git reflog".
-func (s *Seal) GitUpdateHandler(filecontent []byte) Handler {
+func (srv *Server) GitUpdateHandler(filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
-	return func(dir *Dir, reqpath *[]string, w http.ResponseWriter, r *http.Request) {
+	return func(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Write([]byte("method not allowed"))
@@ -87,7 +87,7 @@ func (s *Seal) GitUpdateHandler(filecontent []byte) Handler {
 			return
 		}
 
-		s.Update()
+		srv.Update()
 		w.Write([]byte("ok"))
 	}
 }

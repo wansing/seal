@@ -16,7 +16,7 @@ type TemplateGen func(dirpath string, filecontent []byte, tmpl *template.Templat
 
 type HandlerGen func(filecontent []byte) Handler
 
-type Handler func(dir *Dir, reqpath *[]string, w http.ResponseWriter, r *http.Request)
+type Handler func(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request)
 
 var errExecuteTemplate = template.Must(template.New("").Parse(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error executing template: {{.}}</p>`))
 
@@ -29,37 +29,56 @@ func execErrParsingTemplate(err error) string {
 	return buf.String()
 }
 
-// default handler
-func handleTemplate(dir *Dir, _ *[]string, w http.ResponseWriter, r *http.Request) {
-	dir.ExecuteTemplate(w)
-}
-
-// Seal is both the configuration and the http handler. This is because Filenames["update"] modifies the DirHandler.
-type Seal struct {
-	Fsys      fs.FS
-	FileExts  map[string]TemplateGen
-	Filenames map[string]HandlerGen
-	Params    map[string]Handler // key: directory name, e.g. "{date}"
-
-	RootHandler DirHandler
-}
-
-func (s *Seal) ListenAndServe(addr string) {
-	s.RootHandler = DirHandler{
-		Files: http.FileServer(http.FS(s.Fsys)), // better use ServeFileFS when it's in the standard library
+// handleTemplate is the default handler. If the request path has been consumed, it executes dir.Template. Else it calls handleNext.
+func handleTemplate(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request) {
+	if len(reqpath) == 0 {
+		if dir.TemplateDiffers {
+			dir.ExecuteTemplate(w)
+		} else {
+			http.NotFound(w, r) // would be duplicate content
+		}
+	} else {
+		handleNext(dir, reqpath, w, r)
 	}
-	s.Update()
-	log.Printf("listening to %s", addr)
-	http.ListenAndServe(addr, &s.RootHandler)
+}
+
+func handleNext(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request) {
+	if len(reqpath) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+
+	next, ok := dir.Subdirs[reqpath[0]]
+	if ok {
+		reqpath = reqpath[1:]
+		next.Handler(next, reqpath, w, r)
+	} else {
+		if r.Method == http.MethodGet && dir.Files != nil {
+			dir.Files.ServeHTTP(w, r)
+		} else {
+			http.NotFound(w, r)
+		}
+	}
+}
+
+// A Dir is generated from a filesystem directory. It has no knowledge about request-scoped {parameter} values.
+type Dir struct {
+	// routing
+	Subdirs map[string]*Dir
+	// handling
+	Files           http.Handler       // copy of Server.Files
+	Handler         Handler            // never nil
+	Template        *template.Template // never nil
+	TemplateDiffers bool               // differs from parent template
 }
 
 // LoadDir recursively loads the given filesystem into a *Dir.
-func (s *Seal) LoadDir(parentTmpl *template.Template, fspath string) (*Dir, error) {
+func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir, error) {
 	if parentTmpl == nil {
 		parentTmpl = template.New("")
 	}
 
-	entries, err := fs.ReadDir(s.Fsys, fspath)
+	entries, err := fs.ReadDir(config.Fsys, fspath)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +86,7 @@ func (s *Seal) LoadDir(parentTmpl *template.Template, fspath string) (*Dir, erro
 	// files first, build templates
 	var templates, _ = parentTmpl.Clone()
 	var filenameHandler Handler
-	var templateHandler bool
+	var templateDiffers bool
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -77,8 +96,8 @@ func (s *Seal) LoadDir(parentTmpl *template.Template, fspath string) (*Dir, erro
 
 		// Filenames
 
-		if gen, ok := s.Filenames[entry.Name()]; ok {
-			filecontent, err := fs.ReadFile(s.Fsys, entrypath)
+		if gen, ok := config.Filenames[entry.Name()]; ok {
+			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
 			if err != nil {
 				return nil, err
 			}
@@ -89,14 +108,14 @@ func (s *Seal) LoadDir(parentTmpl *template.Template, fspath string) (*Dir, erro
 		// FileExts
 
 		ext := filepath.Ext(entry.Name())
-		fn, ok := s.FileExts[ext]
+		fn, ok := config.FileExts[ext]
 		if !ok {
 			continue
 		}
 
-		templateHandler = true
+		templateDiffers = true
 
-		filecontent, err := fs.ReadFile(s.Fsys, entrypath)
+		filecontent, err := fs.ReadFile(config.Fsys, entrypath)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +131,6 @@ func (s *Seal) LoadDir(parentTmpl *template.Template, fspath string) (*Dir, erro
 	}
 
 	// subdirs
-	var defaultSubdir string
 	var subdirs = make(map[string]*Dir)
 	for _, entry := range entries {
 		if !entry.IsDir() || entry.Name() == "" || entry.Name() == "." || entry.Name() == ".." {
@@ -120,92 +138,56 @@ func (s *Seal) LoadDir(parentTmpl *template.Template, fspath string) (*Dir, erro
 		}
 
 		entrypath := filepath.Join(fspath, entry.Name())
-		subdir, err := s.LoadDir(templates, entrypath)
+		subdir, err := LoadDir(config, templates, entrypath)
 		if err != nil {
 			return nil, err
-		}
-
-		if middlewareHandler, ok := s.Params[entry.Name()]; ok {
-			subdir.MiddlewareHandler = middlewareHandler
-			defaultSubdir = entry.Name()
 		}
 
 		subdirs[entry.Name()] = subdir
 	}
 
-	var handler Handler
-	if templateHandler {
-		handler = handleTemplate
-	}
+	var handler Handler = handleTemplate
 	if filenameHandler != nil {
-		handler = filenameHandler // overwrite template handler
+		handler = filenameHandler // overwrite handleTemplate
 	}
 
 	return &Dir{
-		Subdirs:       subdirs,
-		DefaultSubdir: defaultSubdir,
-		Handler:       handler,
-		Template:      templates,
+		Files:           http.FileServer(http.FS(config.Fsys)), // same for each Dir, better use ServeFileFS when it's in the standard library
+		Subdirs:         subdirs,
+		Handler:         handler,
+		Template:        templates,
+		TemplateDiffers: templateDiffers,
 	}, nil
 }
 
-type DirHandler struct {
-	Root  *Dir
-	Files http.Handler
-}
-
-// ServeHTTP implements http.Handler.
-func (h *DirHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	r.URL.Path = path.Clean(r.URL.Path)
-
-	var reqpath = strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
-	var dir = h.Root
-	for it := 0; len(reqpath) > 0 && it < 16; it++ {
-		next, ok := dir.Subdirs[reqpath[0]]
-		if ok {
-			reqpath = reqpath[1:]
-		} else {
-			next, ok = dir.Subdirs[dir.DefaultSubdir]
-			if !ok {
-				if r.Method == http.MethodGet && h.Files != nil {
-					h.Files.ServeHTTP(w, r)
-					return
-				} else {
-					http.NotFound(w, r)
-					return
-				}
-			}
-		}
-
-		dir = next
-
-		// may modify reqpath, so we run it before the for condition is checked
-		if dir.MiddlewareHandler != nil {
-			dir.MiddlewareHandler(dir, &reqpath, w, r)
-		}
-	}
-
-	if dir.Handler != nil {
-		dir.Handler(dir, &reqpath, w, r)
-	} else {
-		http.NotFound(w, r)
-	}
-}
-
-// A Dir is generated from a filesystem directory. It has no knowledge about request-scoped {parameter} values.
-type Dir struct {
-	// routing
-	Subdirs           map[string]*Dir
-	DefaultSubdir     string
-	MiddlewareHandler Handler
-	// handling
-	Handler  Handler
-	Template *template.Template // Contains templates from parent directories. Don't hide in Handler, may need it later.
-}
-
+// for embedding content (e.g. blog post preview) without executing their other (redirect etc.) handlers
 func (dir *Dir) ExecuteTemplate(w io.Writer) {
-	err := dir.Template.ExecuteTemplate(w, "html", nil)
+	err := dir.Template.ExecuteTemplate(w, "html", dir)
 	if err != nil {
 		errExecuteTemplate.Execute(w, err)
 	}
+}
+
+type Config struct {
+	Fsys      fs.FS
+	FileExts  map[string]TemplateGen
+	Filenames map[string]HandlerGen
+}
+
+type Server struct {
+	Conf Config
+	Root *Dir
+}
+
+func (srv *Server) ListenAndServe(addr string) {
+	srv.Update()
+	log.Printf("listening to %s", addr)
+	http.ListenAndServe(addr, srv)
+}
+
+// ServeHTTP implements http.Handler.
+func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	r.URL.Path = path.Clean(r.URL.Path)
+	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
+	srv.Root.Handler(srv.Root, reqpath, w, r)
 }

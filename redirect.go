@@ -16,7 +16,7 @@ func Redirect(filecontent []byte) Handler {
 			join = true
 		}
 	}
-	return func(dir *Dir, reqpath *[]string, w http.ResponseWriter, r *http.Request) {
+	return func(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request) {
 		redir := redir // don't touch original value
 		if join {
 			redir = path.Join(r.URL.Path, redir) // handler is called only when the Dir is targeted directly, so r.URL.Path should be the path to this Dir

@@ -15,25 +15,24 @@ func main() {
 		httpPort = 8080
 	}
 
-	var s seal.Seal
-	s = seal.Seal{
-		Fsys: os.DirFS("."),
-		FileExts: map[string]seal.TemplateGen{
-			".html": ext.Html,
-			".md":   ext.Commonmark,
-		},
-		Filenames: map[string]seal.HandlerGen{
-			"redirect": seal.Redirect,
-			"update":   s.UpdateHandler,
-		},
-		Params: map[string]seal.Handler{
-			// TODO
+	var srv *seal.Server
+	srv = &seal.Server{
+		Conf: seal.Config{
+			Fsys: os.DirFS("."),
+			FileExts: map[string]seal.TemplateGen{
+				".html": ext.Html,
+				".md":   ext.Commonmark,
+			},
+			Filenames: map[string]seal.HandlerGen{
+				"redirect": seal.Redirect,
+				"update":   srv.UpdateHandler,
+			},
 		},
 	}
 
 	if !isatty.IsTerminal(os.Stdout.Fd()) {
-		s.Filenames["git-update"] = s.GitUpdateHandler
+		srv.Conf.Filenames["git-update"] = srv.GitUpdateHandler
 	}
 
-	s.ListenAndServe("127.0.0.1:" + strconv.Itoa(httpPort))
+	srv.ListenAndServe("127.0.0.1:" + strconv.Itoa(httpPort))
 }
