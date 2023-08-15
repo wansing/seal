@@ -16,7 +16,8 @@ type TemplateGen func(dirpath string, filecontent []byte, tmpl *template.Templat
 
 type HandlerGen func(dir *Dir, filecontent []byte) Handler
 
-type Handler func(reqpath []string, w http.ResponseWriter, r *http.Request)
+// Handler returns true in order to continue execution, false to stop execution.
+type Handler func(reqpath []string, w http.ResponseWriter, r *http.Request) bool
 
 var errExecuteTemplate = template.Must(template.New("").Parse(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error executing template: {{.}}</p>`))
 
@@ -29,37 +30,19 @@ func execErrParsingTemplate(err error) string {
 	return buf.String()
 }
 
-// Template returns a Handler which executes dir.Template if the request path has been consumed. Else it calls handleNext.
+// Template returns a Handler which executes dir.Template if the request path has been consumed.
 func Template(dir *Dir, _ []byte) Handler {
-	return func(reqpath []string, w http.ResponseWriter, r *http.Request) {
-		if len(reqpath) == 0 {
-			if dir.TemplateDiffers {
-				dir.ExecuteTemplate(w, "html")
-			} else {
-				http.NotFound(w, r) // would be duplicate content
-			}
-		} else {
-			handleNext(dir, reqpath, w, r)
+	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
+		if len(reqpath) > 0 {
+			return true
 		}
-	}
-}
 
-func handleNext(dir *Dir, reqpath []string, w http.ResponseWriter, r *http.Request) {
-	if len(reqpath) == 0 {
-		http.NotFound(w, r)
-		return
-	}
-
-	next, ok := dir.Subdirs[reqpath[0]]
-	if ok {
-		reqpath = reqpath[1:]
-		next.Handler(reqpath, w, r)
-	} else {
-		if r.Method == http.MethodGet && dir.Files != nil {
-			dir.Files.ServeHTTP(w, r)
+		if dir.TemplateDiffers {
+			dir.ExecuteTemplate(w, "html")
 		} else {
-			http.NotFound(w, r)
+			http.NotFound(w, r) // would be duplicate content
 		}
+		return false
 	}
 }
 
@@ -196,5 +179,33 @@ func (srv *Server) ListenAndServe(addr string) {
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.URL.Path = path.Clean(r.URL.Path)
 	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
-	srv.Root.Handler(reqpath, w, r)
+
+	dir := srv.Root
+	for {
+		cont := dir.Handler(reqpath, w, r)
+		if !cont {
+			return
+		}
+
+		if len(reqpath) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+
+		next, ok := dir.Subdirs[reqpath[0]]
+		if ok {
+			reqpath = reqpath[1:]
+			dir = next
+			continue
+		}
+
+		// no subdir with that name found, but maybe a file
+		if r.Method == http.MethodGet && dir.Files != nil {
+			dir.Files.ServeHTTP(w, r)
+			return
+		}
+
+		http.NotFound(w, r)
+		return
+	}
 }

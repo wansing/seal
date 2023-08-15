@@ -23,19 +23,20 @@ func (srv *Server) Update() {
 
 func (srv *Server) UpdateHandler(_ *Dir, filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
-	return func(reqpath []string, w http.ResponseWriter, r *http.Request) {
+	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
 		if r.URL.Query().Get("secret") != secret {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("unauthorized"))
-			return
+			return false
 		}
 		if !updateHandlerLimiter.Allow() {
 			w.WriteHeader(http.StatusTooManyRequests)
 			w.Write([]byte("too many requests"))
-			return
+			return false
 		}
 		srv.Update()
 		w.Write([]byte("ok"))
+		return false
 	}
 }
 
@@ -45,33 +46,33 @@ func (srv *Server) UpdateHandler(_ *Dir, filecontent []byte) Handler {
 // Thus it accepts POST requests only and skips if there are local changes. You should not use it in interactive terminals and know "git reflog".
 func (srv *Server) GitUpdateHandler(_ *Dir, filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
-	return func(reqpath []string, w http.ResponseWriter, r *http.Request) {
+	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Write([]byte("method not allowed"))
-			return
+			return false
 		}
 		if r.URL.Query().Get("secret") != secret {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("unauthorized"))
-			return
+			return false
 		}
 		if !updateHandlerLimiter.Allow() {
 			w.WriteHeader(http.StatusTooManyRequests)
 			w.Write([]byte("too many requests"))
-			return
+			return false
 		}
 
 		localChanges, err := exec.Command("git", "status", "--porcelain").Output()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("error running git status"))
-			return
+			return false
 		}
 		if len(localChanges) > 0 {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("git working copy has local changes"))
-			return
+			return false
 		}
 
 		// https://stackoverflow.com/questions/9813816/git-pull-after-forced-update
@@ -79,15 +80,16 @@ func (srv *Server) GitUpdateHandler(_ *Dir, filecontent []byte) Handler {
 		if err := exec.Command("git", "fetch").Run(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("error running git fetch"))
-			return
+			return false
 		}
 		if err := exec.Command("git", "reset", "--hard", "origin").Run(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("error running git reset"))
-			return
+			return false
 		}
 
 		srv.Update()
 		w.Write([]byte("ok"))
+		return false
 	}
 }
