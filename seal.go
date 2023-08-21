@@ -142,7 +142,7 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 	}
 
 	if handlerGen != nil {
-		dir.Handler = handlerGen(dir, handlerGenFilecontent) // overwrite handleTemplate
+		dir.Handler = handlerGen(dir, handlerGenFilecontent)
 	} else {
 		dir.Handler = Template(dir, nil)
 	}
