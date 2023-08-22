@@ -20,8 +20,9 @@ func main() {
 		Conf: seal.Config{
 			Fsys: os.DirFS("."),
 			FileExts: map[string]seal.TemplateGen{
-				".html": ext.Html,
-				".md":   ext.Commonmark,
+				".countdown": ext.Countdown,
+				".html":      ext.Html,
+				".md":        ext.Commonmark,
 			},
 			Filenames: map[string]seal.HandlerGen{
 				"redirect": seal.Redirect,
