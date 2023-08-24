@@ -77,11 +77,9 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 		if entry.IsDir() {
 			continue
 		}
-
 		entrypath := filepath.Join(fspath, entry.Name())
 
 		// Filenames
-
 		if gen, ok := config.Filenames[entry.Name()]; ok {
 			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
 			if err != nil {
@@ -93,27 +91,23 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 		}
 
 		// FileExts
-
 		ext := filepath.Ext(entry.Name())
-		fn, ok := config.FileExts[ext]
-		if !ok {
+		if fn, ok := config.FileExts[ext]; ok {
+			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
+			if err != nil {
+				return nil, err
+			}
+
+			dirpath := strings.TrimSuffix(path.Join("/", fspath), "/") // root becomes "", so the html code can append "/" without getting "//"
+			tmplName := strings.TrimSuffix(entry.Name(), ext)
+			tmpl := templates.New(tmplName)
+
+			err = fn(dirpath, filecontent, tmpl)
+			if err != nil {
+				tmpl.Parse(execErrParsingTemplate(err))
+			}
+			templateDiffers = true
 			continue
-		}
-
-		templateDiffers = true
-
-		filecontent, err := fs.ReadFile(config.Fsys, entrypath)
-		if err != nil {
-			return nil, err
-		}
-
-		dirpath := strings.TrimSuffix(path.Join("/", fspath), "/") // root becomes "", so the html code can append "/" without getting "//"
-		tmplName := strings.TrimSuffix(entry.Name(), ext)
-		tmpl := templates.New(tmplName)
-
-		err = fn(dirpath, filecontent, tmpl)
-		if err != nil {
-			tmpl.Parse(execErrParsingTemplate(err))
 		}
 	}
 
