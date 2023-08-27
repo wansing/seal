@@ -4,6 +4,8 @@ import (
 	"html/template"
 )
 
+// Html parses the input as an html template using Golang's templating engine.
+// The template variable $dir is set to dirpath.
 func Html(dirpath string, input []byte, tmpl *template.Template) error {
 	// We want to create links and embed images which are relative to a directory.
 	//

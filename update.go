@@ -13,6 +13,7 @@ import (
 // not in UpdateHandler because UpdateHandler is called on each update
 var updateHandlerLimiter = rate.NewLimiter(rate.Every(time.Minute), 2)
 
+// Update reloads srv.Root.
 func (srv *Server) Update() {
 	root, err := LoadDir(srv.Conf, nil, ".")
 	if err != nil {
@@ -21,6 +22,7 @@ func (srv *Server) Update() {
 	srv.Root = root
 }
 
+// GitUpdateHandler returns a rate-limited handler which calls Update.
 func (srv *Server) UpdateHandler(_ *Dir, filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
 	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
@@ -40,10 +42,11 @@ func (srv *Server) UpdateHandler(_ *Dir, filecontent []byte) Handler {
 	}
 }
 
-// GitUpdateHandler returns a rate-limited handler which resets the local git repository to its upstream and then calls Update.
+// GitUpdateHandler returns a rate-limited handler which does "git fetch" and "git reset --hard". It then calls Update.
 //
 // We can't distinguish between local commits (which should be kept) and remote history rewerites (which can be dropped).
-// Thus it accepts POST requests only and skips if there are local changes. You should not use it in interactive terminals and know "git reflog".
+// Thus it accepts POST requests only and fails if there are local changes. You should not use it in interactive terminals,
+// and you should know about "git reflog".
 func (srv *Server) GitUpdateHandler(_ *Dir, filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
 	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {

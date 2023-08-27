@@ -16,7 +16,7 @@ type TemplateGen func(dirpath string, filecontent []byte, tmpl *template.Templat
 
 type HandlerGen func(dir *Dir, filecontent []byte) Handler
 
-// Handler returns true in order to continue execution, false to stop execution.
+// A Handler responds to an HTTP request. It must return true if execution shall continue, false to stop execution.
 type Handler func(reqpath []string, w http.ResponseWriter, r *http.Request) bool
 
 var errExecuteTemplate = template.Must(template.New("").Parse(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error executing template: {{.}}</p>`))
@@ -30,7 +30,7 @@ func execErrParsingTemplate(err error) string {
 	return buf.String()
 }
 
-// Template returns a Handler which executes dir.Template if the request path has been consumed.
+// Template returns a Handler which executes dir.Template if the (remaining) request path is empty.
 func Template(dir *Dir, _ []byte) Handler {
 	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
 		if len(reqpath) > 0 {
@@ -46,7 +46,7 @@ func Template(dir *Dir, _ []byte) Handler {
 	}
 }
 
-// A Dir is generated from a filesystem directory. It has no knowledge about request-scoped {parameter} values.
+// A Dir represents a filesystem directory.
 type Dir struct {
 	// routing
 	Subdirs map[string]*Dir
@@ -57,7 +57,7 @@ type Dir struct {
 	TemplateDiffers bool               // differs from parent template
 }
 
-// LoadDir recursively loads the given filesystem into a *Dir.
+// LoadDir recursively loads the given filesystem. Default handler is Template(dir, nil).
 func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir, error) {
 	if parentTmpl == nil {
 		parentTmpl = template.New("")
@@ -144,7 +144,8 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 	return dir, nil
 }
 
-// for embedding content (e.g. blog post preview) without executing their other (redirect etc.) handlers
+// ExecuteTemplate executes dir.Template. If an error is returned, the function executes a template with an error message.
+// Use this function to embed content, e.g. a blog post preview, without executing the handler.
 func (dir *Dir) ExecuteTemplate(w io.Writer, name string) {
 	err := dir.Template.ExecuteTemplate(w, name, dir)
 	if err != nil {
@@ -169,7 +170,7 @@ func (srv *Server) ListenAndServe(addr string) {
 	http.ListenAndServe(addr, srv)
 }
 
-// ServeHTTP implements http.Handler.
+// ServeHTTP processes the request URL path, calling the handler of each directory it passes by, until one handler returns false or the path is done.
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.URL.Path = path.Clean(r.URL.Path)
 	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
