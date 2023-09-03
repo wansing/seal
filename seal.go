@@ -37,11 +37,7 @@ func Template(dir *Dir, _ []byte) Handler {
 			return true
 		}
 
-		if dir.TemplateDiffers {
-			dir.ExecuteTemplate(w, "html")
-		} else {
-			http.NotFound(w, r) // would be duplicate content
-		}
+		dir.ExecuteTemplate(w, "html")
 		return false
 	}
 }
@@ -51,10 +47,9 @@ type Dir struct {
 	// routing
 	Subdirs map[string]*Dir
 	// handling
-	Files           http.Handler       // copy of Server.Files
-	Handler         Handler            // never nil
-	Template        *template.Template // never nil
-	TemplateDiffers bool               // differs from parent template
+	Files    http.Handler       // copy of Server.Files
+	Handler  Handler            // never nil
+	Template *template.Template // never nil
 }
 
 // LoadDir recursively loads the given filesystem. Default handler is Template(dir, nil).
@@ -72,7 +67,6 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 	var handlerGen HandlerGen
 	var handlerGenFilecontent []byte
 	var templates, _ = parentTmpl.Clone()
-	var templateDiffers = false
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -106,7 +100,6 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 			if err != nil {
 				tmpl.Parse(execErrParsingTemplate(err))
 			}
-			templateDiffers = true
 			continue
 		}
 	}
@@ -127,12 +120,10 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 		subdirs[entry.Name()] = subdir
 	}
 
-	// without Dir.Handler
 	dir := &Dir{
-		Files:           http.FileServer(http.FS(config.Fsys)), // same for each Dir, better use ServeFileFS when it's in the standard library
-		Subdirs:         subdirs,
-		Template:        templates,
-		TemplateDiffers: templateDiffers,
+		Files:    http.FileServer(http.FS(config.Fsys)), // same for each Dir, better use ServeFileFS when it's in the standard library
+		Subdirs:  subdirs,
+		Template: templates,
 	}
 
 	if handlerGen != nil {

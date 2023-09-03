@@ -27,9 +27,6 @@ var testFS = fstest.MapFS{
 	"site/subsite/site.md": &fstest.MapFile{
 		Data: []byte(`## Subsite`),
 	},
-	"site/empty-dir/only-an-image.jpg": &fstest.MapFile{
-		Data: []byte("JPEG"),
-	},
 	"redirect-absolute-url/redirect": &fstest.MapFile{
 		Data: []byte("https://example.com"),
 	},
@@ -76,7 +73,6 @@ func TestSeal(t *testing.T) {
 <h1><a href="/site">Site</a>
 <h2>Subsite</h2>
 </h1></main></body></html>`},
-		{input: "/site/empty-dir", want: `404 page not found`},
 		{input: "/redirect-absolute-url", want: `<a href="https://example.com">See Other</a>.`},
 		{input: "/redirect-absolute-path", want: `<a href="/path">See Other</a>.`},
 		{input: "/redirect-relative-path", want: `<a href="/redirect-relative-path/path">See Other</a>.`},
