@@ -138,8 +138,11 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 // ExecuteTemplate executes dir.Template. If an error is returned, the function executes a template with an error message.
 // Use this function to embed content, e.g. a blog post preview, without executing the handler.
 func (dir *Dir) ExecuteTemplate(w io.Writer, name string) {
-	err := dir.Template.ExecuteTemplate(w, name, dir)
-	if err != nil {
+	var buf bytes.Buffer
+	err := dir.Template.ExecuteTemplate(&buf, name, dir)
+	if err == nil {
+		io.Copy(w, &buf)
+	} else {
 		errExecuteTemplate.Execute(w, err)
 	}
 }
