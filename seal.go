@@ -30,14 +30,21 @@ func execErrParsingTemplate(err error) string {
 	return buf.String()
 }
 
-// Template returns a Handler which executes dir.Template if the (remaining) request path is empty.
+// Template returns a Handler which executes the template associated with dir.Template that has the name "html", but only if the (remaining) request path is empty.
+// If an error is returned, a template with an error message is executed.
 func Template(dir *Dir, _ []byte) Handler {
 	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
 		if len(reqpath) > 0 {
 			return true
 		}
 
-		dir.ExecuteTemplate(w, "html")
+		var buf bytes.Buffer
+		err := dir.Template.ExecuteTemplate(&buf, "html", dir)
+		if err != nil {
+			buf.Reset()
+			errExecuteTemplate.Execute(&buf, err)
+		}
+		io.Copy(w, &buf)
 		return false
 	}
 }
@@ -135,16 +142,17 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 	return dir, nil
 }
 
-// ExecuteTemplate executes dir.Template. If an error is returned, the function executes a template with an error message.
-// Use this function to embed content, e.g. a blog post preview, without executing the handler.
-func (dir *Dir) ExecuteTemplate(w io.Writer, name string) {
+// ExecuteTemplate executes the template associated with dir.Template that has the given name.
+// If an error is returned, a template with an error message is executed.
+// Use this function to embed content of a specific Dir, e.g. blog post previews.
+func (dir *Dir) ExecuteTemplate(name string) template.HTML {
 	var buf bytes.Buffer
 	err := dir.Template.ExecuteTemplate(&buf, name, dir)
-	if err == nil {
-		io.Copy(w, &buf)
-	} else {
-		errExecuteTemplate.Execute(w, err)
+	if err != nil {
+		buf.Reset()
+		errExecuteTemplate.Execute(&buf, err)
 	}
+	return template.HTML(buf.String())
 }
 
 type Config struct {
