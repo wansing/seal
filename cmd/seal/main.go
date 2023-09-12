@@ -19,12 +19,12 @@ func main() {
 	srv = &seal.Server{
 		Conf: seal.Config{
 			Fsys: os.DirFS("."),
-			FileExts: map[string]seal.TemplateGen{
+			Content: map[string]seal.ContentFunc{
 				".countdown": ext.Countdown,
 				".html":      ext.Html,
 				".md":        ext.Commonmark,
 			},
-			Filenames: map[string]seal.HandlerGen{
+			Handlers: map[string]seal.HandlerGen{
 				"redirect": seal.Redirect,
 				"update":   srv.UpdateHandler,
 			},
@@ -32,7 +32,7 @@ func main() {
 	}
 
 	if !isatty.IsTerminal(os.Stdout.Fd()) {
-		srv.Conf.Filenames["git-update"] = srv.GitUpdateHandler
+		srv.Conf.Handlers["git-update"] = srv.GitUpdateHandler
 	}
 
 	srv.ListenAndServe("127.0.0.1:" + strconv.Itoa(httpPort))

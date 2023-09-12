@@ -44,11 +44,11 @@ var testFS = fstest.MapFS{
 var srv = &Server{
 	Conf: Config{
 		Fsys: testFS,
-		FileExts: map[string]TemplateGen{
+		Content: map[string]ContentFunc{
 			".html": ext.Html,
 			".md":   ext.Commonmark,
 		},
-		Filenames: map[string]HandlerGen{
+		Handlers: map[string]HandlerGen{
 			"redirect": Redirect,
 		},
 	},

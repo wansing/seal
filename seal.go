@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-type TemplateGen func(dirpath string, filecontent []byte, tmpl *template.Template) error
+type ContentFunc func(dirpath string, filecontent []byte, tmpl *template.Template) error
 
 type HandlerGen func(dir *Dir, filecontent []byte) Handler
 
@@ -80,8 +80,8 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 		}
 		entrypath := filepath.Join(fspath, entry.Name())
 
-		// Filenames
-		if gen, ok := config.Filenames[entry.Name()]; ok {
+		// Handlers
+		if gen, ok := config.Handlers[entry.Name()]; ok {
 			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
 			if err != nil {
 				return nil, err
@@ -91,9 +91,9 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 			continue
 		}
 
-		// FileExts
+		// Content
 		ext := filepath.Ext(entry.Name())
-		if fn, ok := config.FileExts[ext]; ok {
+		if fn, ok := config.Content[ext]; ok {
 			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
 			if err != nil {
 				return nil, err
@@ -156,9 +156,9 @@ func (dir *Dir) ExecuteTemplate(name string) template.HTML {
 }
 
 type Config struct {
-	Fsys      fs.FS
-	FileExts  map[string]TemplateGen
-	Filenames map[string]HandlerGen
+	Fsys     fs.FS
+	Content  map[string]ContentFunc // key is extension
+	Handlers map[string]HandlerGen  // key is extension or full filename
 }
 
 type Server struct {
