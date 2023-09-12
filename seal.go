@@ -84,20 +84,20 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 		ext := filepath.Ext(entry.Name())
 		stem := strings.TrimSuffix(entry.Name(), ext)
 
-		// Handlers[ext]
-		if gen, ok := config.Handlers[ext]; ok {
+		// Handlers[filename]
+		if gen, ok := config.Handlers[entry.Name()]; ok {
 			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
 			if err != nil {
 				return nil, err
 			}
 			makeHandler = func(dir *Dir) Handler {
-				return gen(dir, stem, filecontent)
+				return gen(dir, "", filecontent)
 			}
 			continue
 		}
 
-		// Handlers[stem]
-		if gen, ok := config.Handlers[stem]; ok {
+		// Handlers[ext]
+		if gen, ok := config.Handlers[ext]; ok {
 			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
 			if err != nil {
 				return nil, err
