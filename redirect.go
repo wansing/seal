@@ -9,7 +9,7 @@ import (
 
 // Redirect returns a Handler which does a HTTP 303 redirect if the (remaining) request path is empty.
 // The redirect target is taken from the file content. If the target is relative, the handler will prepend the request URL path.
-func Redirect(_ *Dir, filecontent []byte) Handler {
+func Redirect(_ *Dir, _ string, filecontent []byte) Handler {
 	redir := strings.TrimSpace(string(filecontent))
 	var join = false
 	if uri, err := url.Parse(redir); err == nil {

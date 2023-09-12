@@ -14,7 +14,7 @@ import (
 
 type ContentFunc func(dirpath string, filecontent []byte, tmpl *template.Template) error
 
-type HandlerGen func(dir *Dir, filecontent []byte) Handler
+type HandlerGen func(dir *Dir, filestem string, filecontent []byte) Handler
 
 // A Handler responds to an HTTP request. It must return true if execution shall continue, false to stop execution.
 type Handler func(reqpath []string, w http.ResponseWriter, r *http.Request) bool
@@ -32,7 +32,7 @@ func execErrParsingTemplate(err error) string {
 
 // Template returns a Handler which executes the template associated with dir.Template that has the name "html", but only if the (remaining) request path is empty.
 // If an error is returned, a template with an error message is executed.
-func Template(dir *Dir, _ []byte) Handler {
+func Template(dir *Dir, _ string, _ []byte) Handler {
 	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
 		if len(reqpath) > 0 {
 			return true
@@ -71,8 +71,9 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 	}
 
 	// files
-	var handlerGen HandlerGen
-	var handlerGenFilecontent []byte
+	var makeHandler = func(dir *Dir) Handler { // call makeHandler after the rest of Dir is complete
+		return Template(dir, "", nil)
+	}
 	var templates, _ = parentTmpl.Clone()
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -80,19 +81,34 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 		}
 		entrypath := filepath.Join(fspath, entry.Name())
 
-		// Handlers
-		if gen, ok := config.Handlers[entry.Name()]; ok {
+		ext := filepath.Ext(entry.Name())
+		stem := strings.TrimSuffix(entry.Name(), ext)
+
+		// Handlers[ext]
+		if gen, ok := config.Handlers[ext]; ok {
 			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
 			if err != nil {
 				return nil, err
 			}
-			handlerGen = gen // don't call gen() here because Dir is not complete yet
-			handlerGenFilecontent = filecontent
+			makeHandler = func(dir *Dir) Handler {
+				return gen(dir, stem, filecontent)
+			}
+			continue
+		}
+
+		// Handlers[stem]
+		if gen, ok := config.Handlers[stem]; ok {
+			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
+			if err != nil {
+				return nil, err
+			}
+			makeHandler = func(dir *Dir) Handler {
+				return gen(dir, stem, filecontent)
+			}
 			continue
 		}
 
 		// Content
-		ext := filepath.Ext(entry.Name())
 		if fn, ok := config.Content[ext]; ok {
 			filecontent, err := fs.ReadFile(config.Fsys, entrypath)
 			if err != nil {
@@ -100,8 +116,7 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 			}
 
 			dirpath := strings.TrimSuffix(path.Join("/", fspath), "/") // root becomes "", so the html code can append "/" without getting "//"
-			tmplName := strings.TrimSuffix(entry.Name(), ext)
-			tmpl := templates.New(tmplName)
+			tmpl := templates.New(stem)
 
 			err = fn(dirpath, filecontent, tmpl)
 			if err != nil {
@@ -132,12 +147,7 @@ func LoadDir(config Config, parentTmpl *template.Template, fspath string) (*Dir,
 		Subdirs:  subdirs,
 		Template: templates,
 	}
-
-	if handlerGen != nil {
-		dir.Handler = handlerGen(dir, handlerGenFilecontent)
-	} else {
-		dir.Handler = Template(dir, nil)
-	}
+	dir.Handler = makeHandler(dir)
 
 	return dir, nil
 }

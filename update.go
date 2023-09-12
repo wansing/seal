@@ -23,7 +23,7 @@ func (srv *Server) Update() {
 }
 
 // GitUpdateHandler returns a rate-limited handler which calls Update.
-func (srv *Server) UpdateHandler(_ *Dir, filecontent []byte) Handler {
+func (srv *Server) UpdateHandler(_ *Dir, _ string, filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
 	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
 		if r.URL.Query().Get("secret") != secret {
@@ -47,7 +47,7 @@ func (srv *Server) UpdateHandler(_ *Dir, filecontent []byte) Handler {
 // We can't distinguish between local commits (which should be kept) and remote history rewerites (which can be dropped).
 // Thus it accepts POST requests only and fails if there are local changes. You should not use it in interactive terminals,
 // and you should know about "git reflog".
-func (srv *Server) GitUpdateHandler(_ *Dir, filecontent []byte) Handler {
+func (srv *Server) GitUpdateHandler(_ *Dir, _ string, filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
 	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
 		if r.Method != http.MethodPost {
