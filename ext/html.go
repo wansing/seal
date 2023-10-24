@@ -18,7 +18,7 @@ func Html(dirpath string, input []byte, tmpl *template.Template) error {
 	// Instead, let's pass the directory to the template through a variable $dir.
 	// We have to inject the template action before parsing, else parsing fails when trying to access $dir.
 	// This does only work for the main template, not for {{define}}'d templates.
-	htm := `{{$dir := "` + dirpath + `"}}` + "\n" + string(input)
+	htm := `{{$dir := "` + dirpath + `"}}` + string(input)
 
 	_, err := tmpl.Parse(htm)
 	return err

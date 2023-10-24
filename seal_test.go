@@ -63,15 +63,11 @@ func TestSeal(t *testing.T) {
 		input string
 		want  string
 	}{
-		{input: "/", want: `<html><body><main>
-<h1>Hello</h1>
+		{input: "/", want: `<html><body><main><h1>Hello</h1>
 </main></body></html>`},
 		{input: "/favicon.ico", want: "ICON"},
-		{input: "/site", want: `<html><body><main>
-<h1><a href="/site">Site</a></h1></main></body></html>`},
-		{input: "/site/subsite", want: `<html><body><main>
-<h1><a href="/site">Site</a>
-<h2>Subsite</h2>
+		{input: "/site", want: `<html><body><main><h1><a href="/site">Site</a></h1></main></body></html>`},
+		{input: "/site/subsite", want: `<html><body><main><h1><a href="/site">Site</a><h2>Subsite</h2>
 </h1></main></body></html>`},
 		{input: "/redirect-absolute-url", want: `<a href="https://example.com">See Other</a>.`},
 		{input: "/redirect-absolute-path", want: `<a href="/path">See Other</a>.`},
@@ -109,8 +105,7 @@ func TestUpdate(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	input := "/"
-	want := `<html><body><main>
-<h1>Updated</h1>
+	want := `<html><body><main><h1>Updated</h1>
 </main></body></html>`
 
 	resp, err := http.DefaultClient.Get("http://127.0.0.1:8081" + input)
