@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"strconv"
 
 	"github.com/mattn/go-isatty"
 	"github.com/wansing/seal"
@@ -10,9 +9,9 @@ import (
 )
 
 func main() {
-	httpPort, err := strconv.Atoi(os.Getenv("HTTP_PORT"))
-	if err != nil || httpPort < 1 || httpPort > 65535 {
-		httpPort = 8080
+	listen := os.Getenv("LISTEN")
+	if listen == "" {
+		listen = "127.0.0.1:8080"
 	}
 
 	var srv *seal.Server
@@ -35,5 +34,5 @@ func main() {
 		srv.Conf.Handlers["git-update"] = srv.GitUpdateHandler
 	}
 
-	srv.ListenAndServe("127.0.0.1:" + strconv.Itoa(httpPort))
+	srv.ListenAndServe(listen)
 }
