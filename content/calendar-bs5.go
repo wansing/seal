@@ -11,7 +11,8 @@ import (
 )
 
 type CalendarBS5 struct {
-	*ical.FeedCache
+	Anchor string // for prev, next button link
+	Feed   *ical.FeedCache
 }
 
 func (cal CalendarBS5) Handle(dirpath string, input []byte, tmpl *template.Template) error {
@@ -19,14 +20,16 @@ func (cal CalendarBS5) Handle(dirpath string, input []byte, tmpl *template.Templ
 		"GetData": func(r *http.Request) (*calendar.Month, error) {
 			year, _ := strconv.Atoi(r.URL.Query().Get("year"))
 			month, _ := strconv.Atoi(r.URL.Query().Get("month"))
-			return calendar.MakeMonth(cal.FeedCache, year, month)
+			return calendar.MakeMonth(cal.Feed, year, month)
 		},
 		"Link": func(r *http.Request, month calendar.Month) string {
-			link := r.URL.Query()
+			var url = *r.URL // copy
+			link := url.Query()
 			link.Set("year", strconv.Itoa(month.Year))
 			link.Set("month", strconv.Itoa(int(month.Month)))
-			r.URL.RawQuery = link.Encode()
-			return r.URL.String()
+			url.RawQuery = link.Encode()
+			url.Fragment = cal.Anchor
+			return url.String()
 		},
 		"MonthName": func(month time.Month) string {
 			switch month {
