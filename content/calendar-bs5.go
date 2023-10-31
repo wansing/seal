@@ -12,8 +12,8 @@ import (
 )
 
 type CalendarBS5 struct {
-	Anchor string          // for prev, next button link, default: filepath.Base(dirpath)
-	Feed   *ical.FeedCache // default: string(input)
+	Anchor string      // for prev, next button link, default: filename
+	Config ical.Config // default url: file content
 }
 
 func (cal CalendarBS5) Parse(dirpath string, input []byte, tmpl *template.Template) error {
@@ -22,13 +22,14 @@ func (cal CalendarBS5) Parse(dirpath string, input []byte, tmpl *template.Templa
 		anchor = filepath.Base(dirpath)
 	}
 
-	var feed = cal.Feed
-	if feed == nil {
-		feed = &ical.FeedCache{
-			Config: ical.Config{
-				URL: string(input),
-			},
+	var config = cal.Config
+	if config == (ical.Config{}) {
+		config = ical.Config{
+			URL: string(input),
 		}
+	}
+	feed := &ical.FeedCache{
+		Config: config,
 	}
 
 	_, err := tmpl.Funcs(template.FuncMap{
