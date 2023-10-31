@@ -8,7 +8,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/wansing/seal/ext"
+	"github.com/wansing/seal/content"
 )
 
 var testFS = fstest.MapFS{
@@ -45,8 +45,8 @@ var srv = &Server{
 	Conf: Config{
 		Fsys: testFS,
 		Content: map[string]ContentFunc{
-			".html": ext.Html,
-			".md":   ext.Commonmark,
+			".html": content.Html,
+			".md":   content.Commonmark,
 		},
 		Handlers: map[string]HandlerGen{
 			"redirect": Redirect,

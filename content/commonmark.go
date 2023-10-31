@@ -1,4 +1,4 @@
-package ext
+package content
 
 import (
 	"html/template"

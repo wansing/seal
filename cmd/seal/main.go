@@ -5,7 +5,7 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/wansing/seal"
-	"github.com/wansing/seal/ext"
+	"github.com/wansing/seal/content"
 )
 
 func main() {
@@ -19,9 +19,9 @@ func main() {
 		Conf: seal.Config{
 			Fsys: os.DirFS("."),
 			Content: map[string]seal.ContentFunc{
-				".countdown": ext.Countdown,
-				".html":      ext.Html,
-				".md":        ext.Commonmark,
+				".countdown": content.Countdown,
+				".html":      content.Html,
+				".md":        content.Commonmark,
 			},
 			Handlers: map[string]seal.HandlerGen{
 				"redirect": seal.Redirect,
