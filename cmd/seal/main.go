@@ -6,6 +6,7 @@ import (
 	"github.com/mattn/go-isatty"
 	"github.com/wansing/seal"
 	"github.com/wansing/seal/content"
+	"github.com/wansing/shiftpad/ical"
 )
 
 func main() {
@@ -19,6 +20,11 @@ func main() {
 		Conf: seal.Config{
 			Fsys: os.DirFS("."),
 			Content: map[string]seal.ContentFunc{
+				".calendar-bs5": content.CalendarBS5{
+					FeedCache: &ical.FeedCache{
+						Config: ical.MustLoadConfig(".calendar.json"),
+					},
+				}.Handle,
 				".countdown": content.Countdown,
 				".html":      content.Html,
 				".md":        content.Commonmark,

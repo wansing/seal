@@ -39,7 +39,13 @@ func Template(dir *Dir, _ string, _ []byte) Handler {
 		}
 
 		var buf bytes.Buffer
-		err := dir.Template.ExecuteTemplate(&buf, "html", dir)
+		err := dir.Template.ExecuteTemplate(&buf, "html", struct {
+			Dir     *Dir
+			Request *http.Request
+		}{
+			dir,
+			r,
+		})
 		if err != nil {
 			buf.Reset()
 			errExecuteTemplate.Execute(&buf, err)
