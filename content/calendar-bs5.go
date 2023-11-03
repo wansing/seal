@@ -77,14 +77,6 @@ func (cal CalendarBS5) Parse(dirpath string, input []byte, tmpl *template.Templa
 				return ""
 			}
 		},
-		"NumInWeek": numInWeek,
-		"NumInWeekEnd": func(end time.Time) int {
-			// end time is exclusive, subtract a second if it's midnight
-			if end.Hour() == 0 && end.Minute() == 0 && end.Second() == 0 && end.Nanosecond() == 0 {
-				end = end.Add(-1 * time.Second)
-			}
-			return numInWeek(end)
-		},
 	}).Parse(`
 		{{with GetData .Request}}
 			<div>
@@ -106,10 +98,10 @@ func (cal CalendarBS5) Parse(dirpath string, input []byte, tmpl *template.Templa
 					{{range .Weeks}}
 						{{$week := .}}
 						{{range .Days}}
-							<div class="p-2 text-center border-top border-dark" style="grid-column-start: calc({{NumInWeek .Begin}} + 1);">{{.Number}}</div>
+							<div class="p-2 text-center border-top border-dark" style="grid-column-start: calc({{.NumInWeek}} + 1);">{{.Number}}</div>
 						{{end}}
 						{{range .Events}}
-							<div class="p-2 bg-success bg-opacity-25" style="grid-column-start: calc({{NumInWeek ($week.Begin .)}} + 1); grid-column-end: calc({{NumInWeekEnd ($week.End .)}} + 2);">
+							<div class="p-2 bg-success bg-opacity-25" style="grid-column-start: calc({{$week.NumInWeekBegin .}} + 1); grid-column-end: calc({{$week.NumInWeekEnd .}} + 2);">
 								{{with .URL}}
 									<a href="{{.}}">
 								{{end}}
@@ -126,13 +118,4 @@ func (cal CalendarBS5) Parse(dirpath string, input []byte, tmpl *template.Templa
 	`)
 
 	return err
-}
-
-// returns 0..6, but starting with monday
-func numInWeek(t time.Time) int {
-	num := int(t.Weekday()) - 1
-	if num < 0 {
-		num += 7
-	}
-	return num
 }

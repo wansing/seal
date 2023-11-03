@@ -88,17 +88,24 @@ type Week struct {
 }
 
 func (week Week) Begin(event ical.Event) time.Time {
-	if beginOfWeek := week.Days[0].Begin; event.Start.Before(beginOfWeek) {
-		return beginOfWeek
-	}
-	return event.Start
+	return max(week.Days[0].Begin, event.Start)
 }
 
 func (week Week) End(event ical.Event) time.Time {
-	if endOfWeek := week.Days[6].End(); event.End.After(endOfWeek) {
-		return endOfWeek
+	return min(week.Days[6].End(), event.End)
+}
+
+func (week Week) NumInWeekBegin(event ical.Event) int {
+	return numInWeek(week.Begin(event))
+}
+
+func (week Week) NumInWeekEnd(event ical.Event) int {
+	end := week.End(event)
+	// end time is exclusive, subtract a second if it's midnight
+	if end.Hour() == 0 && end.Minute() == 0 && end.Second() == 0 && end.Nanosecond() == 0 {
+		end = end.Add(-1 * time.Second)
 	}
-	return event.End
+	return numInWeek(end)
 }
 
 type Day struct {
@@ -112,6 +119,10 @@ func (day Day) End() time.Time {
 
 func (day Day) Number() int {
 	return day.Begin.Day()
+}
+
+func (day Day) NumInWeek() int {
+	return numInWeek(day.Begin)
 }
 
 func filterEvents(events []ical.Event, begin, end time.Time) []ical.Event {
@@ -133,4 +144,41 @@ func overlaps(begin1, end1, begin2, end2 time.Time) bool {
 		return false
 	}
 	return true
+}
+
+func max(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	} else {
+		return b
+	}
+}
+
+func min(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	} else {
+		return b
+	}
+}
+
+// returns 0..6, but starting with monday
+func numInWeek(t time.Time) int {
+	switch t.Weekday() {
+	case time.Monday:
+		return 0
+	case time.Tuesday:
+		return 1
+	case time.Wednesday:
+		return 2
+	case time.Thursday:
+		return 3
+	case time.Friday:
+		return 4
+	case time.Saturday:
+		return 5
+	case time.Sunday:
+		return 6
+	}
+	return 0
 }
