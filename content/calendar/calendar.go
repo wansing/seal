@@ -28,7 +28,7 @@ func (month Month) Prev() Month {
 	}
 }
 
-func MakeMonth(proxy *ical.FeedCache, year, month int) (*Month, error) {
+func MakeMonth(events []ical.Event, year, month int) (*Month, error) {
 	// check arguments
 	if year <= 0 {
 		year = time.Now().Year()
@@ -51,11 +51,7 @@ func MakeMonth(proxy *ical.FeedCache, year, month int) (*Month, error) {
 		end = end.AddDate(0, 0, 1)
 	}
 
-	// get and pre-filter events
-	events, err := proxy.Get(time.Local)
-	if err != nil {
-		return nil, err
-	}
+	// pre-filter events
 	events = filterEvents(events, begin, end)
 
 	// make weeks

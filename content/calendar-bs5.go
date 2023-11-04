@@ -36,7 +36,11 @@ func (cal CalendarBS5) Parse(dirpath string, input []byte, tmpl *template.Templa
 		"GetData": func(r *http.Request) (*calendar.Month, error) {
 			year, _ := strconv.Atoi(r.URL.Query().Get("year"))
 			month, _ := strconv.Atoi(r.URL.Query().Get("month"))
-			return calendar.MakeMonth(feed, year, month)
+			events, err := feed.Get(time.Local)
+			if err != nil {
+				return nil, err
+			}
+			return calendar.MakeMonth(events, year, month)
 		},
 		"Link": func(r *http.Request, month calendar.Month) string {
 			var url = *r.URL // copy
