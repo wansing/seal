@@ -22,7 +22,7 @@ func (srv *Server) Update() {
 	srv.Root = root
 }
 
-// GitUpdateHandler returns a rate-limited handler which calls Update.
+// UpdateHandler returns a rate-limited handler which calls Update.
 func (srv *Server) UpdateHandler(_ *Dir, _ string, filecontent []byte) Handler {
 	secret := strings.TrimSpace(string(filecontent))
 	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
