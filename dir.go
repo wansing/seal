@@ -140,16 +140,3 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, fspath string
 
 	return nil
 }
-
-// ExecuteTemplate executes the named template from dir.Template.
-// If an error is returned, a template with an error message is executed.
-// Use this function to embed content of a specific Dir, e.g. blog post previews.
-func (dir *Dir) ExecuteTemplate(name string) template.HTML {
-	var buf bytes.Buffer
-	err := dir.Template.ExecuteTemplate(&buf, name, dir)
-	if err != nil {
-		buf.Reset()
-		errExecuteTemplate.Execute(&buf, err)
-	}
-	return template.HTML(buf.String())
-}

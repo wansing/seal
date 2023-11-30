@@ -2,6 +2,7 @@ package seal
 
 import (
 	"bytes"
+	"html/template"
 	"io"
 	"net/http"
 	"net/url"
@@ -50,10 +51,7 @@ func MakeTemplateHandler(dir *Dir, _ string, _ []byte) Handler {
 
 		if dir.Template != nil {
 			var buf bytes.Buffer
-			err := dir.Template.ExecuteTemplate(&buf, "html", struct {
-				Dir     *Dir
-				Request *http.Request
-			}{
+			err := dir.Template.ExecuteTemplate(&buf, "html", TemplateData{
 				dir,
 				r,
 			})
@@ -65,4 +63,25 @@ func MakeTemplateHandler(dir *Dir, _ string, _ []byte) Handler {
 		}
 		return false
 	}
+}
+
+type TemplateData struct {
+	Dir     *Dir
+	Request *http.Request
+}
+
+// ExecuteTemplate executes the named template from dir.Template (not from data.Dir).
+// If an error is returned, a template with an error message is executed.
+// Use this function to embed content of a specific Dir, e.g. a blog post preview.
+func (data TemplateData) ExecuteTemplate(dir *Dir, name string) template.HTML {
+	var buf bytes.Buffer
+	err := dir.Template.ExecuteTemplate(&buf, name, TemplateData{
+		Dir:     dir,
+		Request: data.Request,
+	})
+	if err != nil {
+		buf.Reset()
+		errExecuteTemplate.Execute(&buf, err)
+	}
+	return template.HTML(buf.String())
 }
