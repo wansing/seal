@@ -1,9 +1,10 @@
 package main
 
 import (
+	"log"
+	"net/http"
 	"os"
 
-	"github.com/mattn/go-isatty"
 	"github.com/wansing/seal"
 	"github.com/wansing/seal/content"
 )
@@ -14,26 +15,47 @@ func main() {
 		listen = "127.0.0.1:8080"
 	}
 
-	var srv *seal.Server
-	srv = &seal.Server{
+	content := map[string]seal.ContentFunc{
+		".calendar-bs5": content.CalendarBS5{}.Parse,
+		".countdown":    content.Countdown,
+		".html":         content.Html,
+		".md":           content.Commonmark,
+	}
+
+	otherRepo := &seal.Repo{
 		Conf: seal.Config{
-			Fsys: os.DirFS("."),
-			Content: map[string]seal.ContentFunc{
-				".calendar-bs5": content.CalendarBS5{}.Parse,
-				".countdown":    content.Countdown,
-				".html":         content.Html,
-				".md":           content.Commonmark,
-			},
+			Content: content,
+		},
+		Root: seal.MakeDir("../other-repo"),
+	}
+
+	rootRepo := &seal.Repo{
+		Conf: seal.Config{
+			Content: content,
 			Handlers: map[string]seal.HandlerGen{
-				"redirect": seal.Redirect,
-				"update":   srv.UpdateHandler,
+				"other-repo": func(dir *seal.Dir, filestem string, filecontent []byte) seal.Handler {
+					if err := otherRepo.Update(dir.Template); err != nil {
+						log.Printf("error updating other repo: %v", err)
+					}
+					return otherRepo.Serve
+				},
+				"redirect": seal.MakeRedirectHandler,
 			},
 		},
+		Root: seal.MakeDir("."),
 	}
 
-	if !isatty.IsTerminal(os.Stdout.Fd()) {
-		srv.Conf.Handlers["git-update"] = srv.GitUpdateHandler
+	srv := &seal.Server{
+		Repository: rootRepo,
+	}
+	if err := srv.Repository.Update(nil); err != nil {
+		log.Fatalf("error updating root repo: %v", err)
 	}
 
-	srv.ListenAndServe(listen)
+	log.Printf("listening to %s", listen)
+	http.HandleFunc("/update", srv.UpdateHandler("change-me"))
+	http.HandleFunc("/git-update-other", otherRepo.GitUpdateHandler("change-me", srv))
+	http.HandleFunc("/git-update-root", rootRepo.GitUpdateHandler("change-me", srv))
+	http.Handle("/", srv)
+	http.ListenAndServe(listen, nil)
 }

@@ -41,21 +41,30 @@ var testFS = fstest.MapFS{
 	},
 }
 
-var srv = &Server{
+var repo = &Repo{
 	Conf: Config{
-		Fsys: testFS,
 		Content: map[string]ContentFunc{
 			".html": content.Html,
 			".md":   content.Commonmark,
 		},
 		Handlers: map[string]HandlerGen{
-			"redirect": Redirect,
+			"redirect": MakeRedirectHandler,
 		},
+	},
+	Root: &Dir{
+		Fsys: testFS,
 	},
 }
 
+var srv = &Server{
+	Repository: repo,
+}
+
 func TestSeal(t *testing.T) {
-	go srv.ListenAndServe("127.0.0.1:8081")
+	if err := srv.Repository.Update(nil); err != nil {
+		t.Fatal(err)
+	}
+	go http.ListenAndServe("127.0.0.1:8081", srv)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -101,7 +110,7 @@ func TestUpdate(t *testing.T) {
 		Data: []byte(`# Updated`),
 	}
 
-	srv.Update()
+	srv.Repository.Update(nil)
 	time.Sleep(100 * time.Millisecond)
 
 	input := "/"
