@@ -33,7 +33,7 @@ func (cal CalendarBS5) Parse(dirpath string, input []byte, tmpl *template.Templa
 	}
 
 	_, err := tmpl.Funcs(template.FuncMap{
-		"GetData": func(r *http.Request) (*calendar.Month, error) {
+		"CalendarBS5": func(r *http.Request) (*calendar.Month, error) {
 			year, _ := strconv.Atoi(r.URL.Query().Get("year"))
 			month, _ := strconv.Atoi(r.URL.Query().Get("month"))
 			events, err := feed.Get(time.Local)
@@ -82,7 +82,7 @@ func (cal CalendarBS5) Parse(dirpath string, input []byte, tmpl *template.Templa
 			}
 		},
 	}).Parse(`
-		{{with GetData .Request}}
+		{{with CalendarBS5 .Request}}
 			<div>
 				<div class="p-2 d-flex justify-content-center align-items-center">
 					<a class="btn btn-success" href="{{Link $.Request .Prev}}">&#9668;</a>

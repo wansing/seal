@@ -44,7 +44,7 @@ func Countdown(dirpath string, input []byte, tmpl *template.Template) error {
 	}
 
 	_, err = tmpl.Funcs(template.FuncMap{
-		"GetData": func() countdownData {
+		"Countdown": func() countdownData {
 			years, months, days, hours, minutes, seconds := timex.Diff(time.Now(), end) // respects leap years
 			return countdownData{
 				End:     end,
@@ -57,7 +57,7 @@ func Countdown(dirpath string, input []byte, tmpl *template.Template) error {
 			}
 		},
 	}).Parse(`
-		{{$data := GetData}}
+		{{$data := Countdown}}
 
 		<script type="text/javascript">
 			function updateCountdown() {
