@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"html/template"
 	"io/fs"
-	"net/http"
-	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -24,25 +21,17 @@ func execErrParsingTemplate(err error) string {
 
 // A Dir represents a filesystem directory.
 type Dir struct {
-	Fsys   fs.FS  // use fs for testability
-	FsPath string // preserve path for git-update
+	Fsys    fs.FS // allows for testing
+	URLPath string
 	// routing
 	Subdirs map[string]*Dir
 	// handling
-	Files    http.Handler
 	Handler  Handler
 	Template *template.Template
 }
 
-func MakeDir(fspath string) *Dir {
-	return &Dir{
-		Fsys:   os.DirFS(fspath),
-		FsPath: fspath,
-	}
-}
-
-// Load recursively loads dir.Subdirs, dir.Files, dir.Handler and dir.Template from dir.Fsys. If no handler is specified, the template handler is used.
-func (dir *Dir) Load(config Config, parentTmpl *template.Template, fspath string) error {
+// Load recursively loads dir.Subdirs, dir.Handler and dir.Template from dir.Fsys. If no handler is specified, the template handler is used.
+func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath string) error {
 	if parentTmpl == nil {
 		parentTmpl = template.New("")
 	}
@@ -94,11 +83,8 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, fspath string
 			if err != nil {
 				return err
 			}
-
-			dirpath := strings.TrimSuffix(path.Join("/", fspath), "/") // root becomes "", so the html code can append "/" without getting "//"
 			tmpl := templates.New(stem)
-
-			err = contentFunc(dirpath, filecontent, tmpl)
+			err = contentFunc(urlpath, filecontent, tmpl)
 			if err != nil {
 				tmpl.Parse(execErrParsingTemplate(err))
 			}
@@ -120,14 +106,14 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, fspath string
 		var subdir = &Dir{
 			Fsys: subfsys,
 		}
-		if err := subdir.Load(config, templates, filepath.Join(fspath, entry.Name())); err != nil {
+		if err := subdir.Load(config, templates, filepath.Join(urlpath, entry.Name())); err != nil {
 			return err
 		}
 
 		subdirs[entry.Name()] = subdir
 	}
 
-	dir.Files = http.FileServer(http.FS(dir.Fsys)) // same for each Dir, better use ServeFileFS when it's in the standard library
+	dir.URLPath = urlpath
 	dir.Subdirs = subdirs
 	dir.Template = templates
 

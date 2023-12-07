@@ -15,34 +15,26 @@ func main() {
 		listen = "127.0.0.1:8080"
 	}
 
-	content := map[string]seal.ContentFunc{
-		".calendar-bs5": content.CalendarBS5{}.Parse,
-		".countdown":    content.Countdown,
-		".html":         content.Html,
-		".md":           content.Commonmark,
+	config := seal.Config{
+		Content: map[string]seal.ContentFunc{
+			".calendar-bs5": content.CalendarBS5{}.Parse,
+			".countdown":    content.Countdown,
+			".html":         content.Html,
+			".md":           content.Commonmark,
+		},
+		Handlers: map[string]seal.HandlerGen{
+			"redirect": seal.MakeRedirectHandler,
+		},
 	}
 
-	otherRepo := &seal.Repo{
-		Conf: seal.Config{
-			Content: content,
-		},
-		Root: seal.MakeDir("../other-repo"),
-	}
+	otherRepo := seal.MakeDirRepo(config, "../other-repo")
 
-	rootRepo := &seal.Repo{
-		Conf: seal.Config{
-			Content: content,
-			Handlers: map[string]seal.HandlerGen{
-				"other-repo": func(dir *seal.Dir, filestem string, filecontent []byte) seal.Handler {
-					if err := otherRepo.Update(dir.Template); err != nil {
-						log.Printf("error updating other repo: %v", err)
-					}
-					return otherRepo.Serve
-				},
-				"redirect": seal.MakeRedirectHandler,
-			},
-		},
-		Root: seal.MakeDir("."),
+	rootRepo := seal.MakeDirRepo(config, ".")
+	rootRepo.Conf.Handlers["other-repo"] = func(dir *seal.Dir, filestem string, filecontent []byte) seal.Handler {
+		if err := otherRepo.Update(dir); err != nil {
+			log.Printf("error updating other repo: %v", err)
+		}
+		return otherRepo.Serve
 	}
 
 	srv := &seal.Server{
