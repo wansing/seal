@@ -43,7 +43,7 @@ func (repo *Repo) Serve(reqpath []string, w http.ResponseWriter, r *http.Request
 
 		// no subdir with that name found, but maybe a file
 		if r.Method == http.MethodGet && dir.Files != nil {
-			dir.Files.ServeHTTP(w, r)
+			http.FileServer(http.FS(repo.Root.Fsys)).ServeHTTP(w, r) // only works with server repository, TODO use ServeFileFS
 			return false
 		}
 
