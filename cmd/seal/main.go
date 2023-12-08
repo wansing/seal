@@ -27,9 +27,9 @@ func main() {
 		},
 	}
 
-	otherRepo := seal.MakeDirRepo(config, "../other-repo")
+	otherRepo := seal.MakeDirRepository(config, "../other-repo")
 
-	rootRepo := seal.MakeDirRepo(config, ".")
+	rootRepo := seal.MakeDirRepository(config, ".")
 	rootRepo.Conf.Handlers["other-repo"] = func(dir *seal.Dir, filestem string, filecontent []byte) seal.Handler {
 		if err := otherRepo.Update(dir); err != nil {
 			log.Printf("error updating other repo: %v", err)
@@ -38,9 +38,9 @@ func main() {
 	}
 
 	srv := &seal.Server{
-		Repository: rootRepo,
+		Repo: rootRepo,
 	}
-	if err := srv.Repository.Update(nil); err != nil {
+	if err := srv.Repo.Update(nil); err != nil {
 		log.Fatalf("error updating root repo: %v", err)
 	}
 

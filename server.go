@@ -12,12 +12,12 @@ import (
 var updateLimiter = rate.NewLimiter(rate.Every(time.Minute), 2)
 
 type Server struct {
-	Repository *Repo
+	Repo *Repository
 }
 
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
-	srv.Repository.Serve(reqpath, w, r)
+	srv.Repo.Serve(reqpath, w, r)
 }
 
 func (srv *Server) UpdateHandler(secret string) http.HandlerFunc {
@@ -33,7 +33,7 @@ func (srv *Server) UpdateHandler(secret string) http.HandlerFunc {
 			return
 		}
 		start := time.Now()
-		if err := srv.Repository.Update(nil); err != nil {
+		if err := srv.Repo.Update(nil); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return

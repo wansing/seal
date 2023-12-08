@@ -11,14 +11,14 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-type Repo struct {
+type Repository struct {
 	Conf    Config
 	Root    *Dir
 	RootDir string // for git update
 }
 
-func MakeDirRepo(config Config, dir string) *Repo {
-	return &Repo{
+func MakeDirRepository(config Config, dir string) *Repository {
+	return &Repository{
 		Conf: config,
 		Root: &Dir{
 			Fsys: os.DirFS(dir),
@@ -30,7 +30,7 @@ func MakeDirRepo(config Config, dir string) *Repo {
 // Serve processes the given reqpath, calling the handler of each directory it passes by, until one handler returns false or the path is done.
 //
 // Serve always returns false. The return value exists for compatibility with type Handler.
-func (repo *Repo) Serve(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
+func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
 	dir := repo.Root
 	for {
 		if dir.Handler != nil {
@@ -65,7 +65,7 @@ func (repo *Repo) Serve(reqpath []string, w http.ResponseWriter, r *http.Request
 }
 
 // Update reloads repo.Root.
-func (repo *Repo) Update(parent *Dir) error {
+func (repo *Repository) Update(parent *Dir) error {
 	var parentTmpl *template.Template
 	var baseURLPath = "/"
 	if parent != nil {
@@ -75,12 +75,12 @@ func (repo *Repo) Update(parent *Dir) error {
 	return repo.Root.Load(repo.Conf, parentTmpl, baseURLPath)
 }
 
-// MakeGitUpdateHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the repo directory, then updates the server.
+// MakeGitUpdateHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the repo root dir, then updates the server.
 //
 // We can't distinguish between local commits (which should be kept) and upstream history rewrites (which can be dropped).
 // Thus it fails if there are local changes and refuses to run from an interactive terminal.
 // You should know about "git reflog".
-func (repo *Repo) GitUpdateHandler(secret string, srv *Server) http.HandlerFunc {
+func (repo *Repository) GitUpdateHandler(secret string, srv *Server) http.HandlerFunc {
 	if repo.RootDir == "" {
 		return http.NotFound
 	}
@@ -133,7 +133,7 @@ func (repo *Repo) GitUpdateHandler(secret string, srv *Server) http.HandlerFunc 
 			return
 		}
 
-		if err := srv.Repository.Update(nil); err != nil {
+		if err := srv.Repo.Update(nil); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return

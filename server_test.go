@@ -41,7 +41,7 @@ var testFS = fstest.MapFS{
 	},
 }
 
-var repo = &Repo{
+var repo = &Repository{
 	Conf: Config{
 		Content: map[string]ContentFunc{
 			".html": content.Html,
@@ -57,11 +57,11 @@ var repo = &Repo{
 }
 
 var srv = &Server{
-	Repository: repo,
+	Repo: repo,
 }
 
 func TestSeal(t *testing.T) {
-	if err := srv.Repository.Update(nil); err != nil {
+	if err := srv.Repo.Update(nil); err != nil {
 		t.Fatal(err)
 	}
 	go http.ListenAndServe("127.0.0.1:8081", srv)
@@ -110,7 +110,7 @@ func TestUpdate(t *testing.T) {
 		Data: []byte(`# Updated`),
 	}
 
-	srv.Repository.Update(nil)
+	srv.Repo.Update(nil)
 	time.Sleep(100 * time.Millisecond)
 
 	input := "/"
