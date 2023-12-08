@@ -27,15 +27,7 @@ func main() {
 		},
 	}
 
-	otherRepo := seal.MakeDirRepository(config, "../other-repo")
-
 	rootRepo := seal.MakeDirRepository(config, ".")
-	rootRepo.Conf.Handlers["other-repo"] = func(dir *seal.Dir, filestem string, filecontent []byte) seal.Handler {
-		if err := otherRepo.Update(dir); err != nil {
-			log.Printf("error updating other repo: %v", err)
-		}
-		return otherRepo.Serve
-	}
 
 	srv := &seal.Server{
 		Repo: rootRepo,
@@ -46,7 +38,6 @@ func main() {
 
 	log.Printf("listening to %s", listen)
 	http.HandleFunc("/update", srv.UpdateHandler("change-me"))
-	http.HandleFunc("/git-update-other", otherRepo.GitUpdateHandler("change-me", srv))
 	http.HandleFunc("/git-update-root", rootRepo.GitUpdateHandler("change-me", srv))
 	http.Handle("/", srv)
 	http.ListenAndServe(listen, nil)
