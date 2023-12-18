@@ -52,8 +52,8 @@ func MakeTemplateHandler(dir *Dir, _ string, _ []byte) Handler {
 		if dir.Template != nil {
 			var buf bytes.Buffer
 			err := dir.Template.ExecuteTemplate(&buf, "html", TemplateData{
-				dir,
-				r,
+				Dir:     dir,
+				Request: r,
 			})
 			if err != nil {
 				buf.Reset()
