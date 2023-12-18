@@ -6,11 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"golang.org/x/time/rate"
 )
-
-var updateLimiter = rate.NewLimiter(rate.Every(time.Minute), 2)
 
 type Error struct {
 	URLPath string `json:"urlpath"`
@@ -45,23 +41,21 @@ func (srv *Server) Update() error {
 }
 
 func (srv *Server) UpdateHandler(secret string) http.HandlerFunc {
+	limitedUpdate := Limit(time.Minute, 2, func() {
+		srv.Update() // ignore returned error
+	})
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("secret") != secret {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("unauthorized"))
 			return
 		}
-		if !updateLimiter.Allow() {
-			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte("too many requests"))
-			return
-		}
+
 		start := time.Now()
-		if err := srv.Update(); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
+		if done := limitedUpdate(); done {
+			w.Write([]byte(fmt.Sprintf("update took %d milliseconds", time.Since(start).Milliseconds())))
+		} else {
+			w.Write([]byte("update scheduled"))
 		}
-		w.Write([]byte(fmt.Sprintf("update took %d milliseconds", time.Since(start).Milliseconds())))
 	}
 }

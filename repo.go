@@ -84,15 +84,13 @@ func (repo *Repository) GitUpdateHandler(secret string, srv *Server) http.Handle
 	if repo.RootDir == "" {
 		return http.NotFound
 	}
+	limitedUpdate := Limit(time.Minute, 2, func() {
+		srv.Update() // ignore returned error
+	})
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("secret") != secret {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("unauthorized"))
-			return
-		}
-		if !updateLimiter.Allow() {
-			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte("too many requests"))
 			return
 		}
 		if isatty.IsTerminal(os.Stdout.Fd()) {
@@ -133,11 +131,10 @@ func (repo *Repository) GitUpdateHandler(secret string, srv *Server) http.Handle
 			return
 		}
 
-		if err := srv.Update(); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
+		if done := limitedUpdate(); done {
+			w.Write([]byte(fmt.Sprintf("git-update took %d milliseconds", time.Since(start).Milliseconds())))
+		} else {
+			w.Write([]byte("git-update scheduled"))
 		}
-		w.Write([]byte(fmt.Sprintf("git-update took %d milliseconds", time.Since(start).Milliseconds())))
 	}
 }
