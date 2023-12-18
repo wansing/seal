@@ -75,7 +75,6 @@ type TemplateData struct {
 }
 
 // ExecuteTemplate executes the named template from dir.Template (not from data.Dir).
-// If an error is returned, a template with an error message is executed.
 // Use this function to embed content of a specific Dir, e.g. a blog post preview.
 func (data TemplateData) ExecuteTemplate(dir *Dir, name string) (template.HTML, error) {
 	var buf bytes.Buffer
