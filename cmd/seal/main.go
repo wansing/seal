@@ -32,11 +32,12 @@ func main() {
 	srv := &seal.Server{
 		Repo: rootRepo,
 	}
-	if err := srv.Repo.Update(nil); err != nil {
+	if err := srv.Update(); err != nil {
 		log.Fatalf("error updating root repo: %v", err)
 	}
 
 	log.Printf("listening to %s", listen)
+	http.HandleFunc("/errors", srv.ErrorsHandler())
 	http.HandleFunc("/update", srv.UpdateHandler("change-me"))
 	http.HandleFunc("/git-update-root", rootRepo.GitUpdateHandler("change-me", srv))
 	http.Handle("/", srv)

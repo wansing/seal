@@ -1,23 +1,11 @@
 package seal
 
 import (
-	"bytes"
 	"html/template"
 	"io/fs"
 	"path/filepath"
 	"strings"
 )
-
-var errExecuteTemplate = template.Must(template.New("").Parse(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error executing template: {{.}}</p>`))
-
-var errParsingTemplate = template.Must(template.New("").Parse(`<p style="border: solid red 2px; border-radius: 8px; padding: 12px">Error parsing template: {{.}}</p>`))
-
-// execErrParsingTemplate safely wraps an error into an html string
-func execErrParsingTemplate(err error) string {
-	var buf bytes.Buffer
-	errParsingTemplate.Execute(&buf, err)
-	return buf.String()
-}
 
 // A Dir represents a filesystem directory.
 type Dir struct {
@@ -31,7 +19,7 @@ type Dir struct {
 }
 
 // Load recursively loads dir.Subdirs, dir.Handler and dir.Template from dir.Fsys. If no handler is specified, the template handler is used.
-func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath string) error {
+func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath string, errs *[]Error) error {
 	if parentTmpl == nil {
 		parentTmpl = template.New("")
 	}
@@ -86,7 +74,7 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 			tmpl := templates.New(stem)
 			err = contentFunc(urlpath, filecontent, tmpl)
 			if err != nil {
-				tmpl.Parse(execErrParsingTemplate(err))
+				*errs = append(*errs, Error{urlpath, err.Error()})
 			}
 			continue
 		}
@@ -106,7 +94,7 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 		var subdir = &Dir{
 			Fsys: subfsys,
 		}
-		if err := subdir.Load(config, templates, filepath.Join(urlpath, entry.Name())); err != nil {
+		if err := subdir.Load(config, templates, filepath.Join(urlpath, entry.Name()), errs); err != nil {
 			return err
 		}
 
@@ -119,9 +107,12 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 
 	// generate handler at the end, when the rest of Dir is complete
 	if handlerGen != nil {
-		dir.Handler = handlerGen(dir, handlerGenFilestem, handlerGenFilecontent)
+		dir.Handler, err = handlerGen(dir, handlerGenFilestem, handlerGenFilecontent)
 	} else {
-		dir.Handler = MakeTemplateHandler(dir, "", nil)
+		dir.Handler, err = MakeTemplateHandler(dir, "", nil)
+	}
+	if err != nil {
+		*errs = append(*errs, Error{urlpath, err.Error()})
 	}
 
 	return nil

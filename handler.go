@@ -2,22 +2,24 @@ package seal
 
 import (
 	"bytes"
+	"errors"
 	"html/template"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"path"
 	"strings"
 )
 
-type HandlerGen func(dir *Dir, filestem string, filecontent []byte) Handler
+type HandlerGen func(dir *Dir, filestem string, filecontent []byte) (Handler, error)
 
 // A Handler responds to an HTTP request. It must return true if execution shall continue, false to stop execution.
 type Handler func(reqpath []string, w http.ResponseWriter, r *http.Request) bool
 
 // MakeRedirectHandler returns a Handler which does a HTTP 303 redirect if the (remaining) request path is empty.
 // The redirect target is taken from the file content. If the target is relative, the handler will prepend the request URL path.
-func MakeRedirectHandler(_ *Dir, _ string, filecontent []byte) Handler {
+func MakeRedirectHandler(_ *Dir, _ string, filecontent []byte) (Handler, error) {
 	redir := strings.TrimSpace(string(filecontent))
 	var join = false
 	if uri, err := url.Parse(redir); err == nil {
@@ -38,31 +40,33 @@ func MakeRedirectHandler(_ *Dir, _ string, filecontent []byte) Handler {
 		}
 		http.Redirect(w, r, redir, http.StatusSeeOther)
 		return false
-	}
+	}, nil
 }
 
 // MakeTemplateHandler returns a Handler which executes the "html" template from dir.Template if reqpath is empty.
-// If an error is returned, a template with an error message is executed.
-func MakeTemplateHandler(dir *Dir, _ string, _ []byte) Handler {
+func MakeTemplateHandler(dir *Dir, _ string, _ []byte) (Handler, error) {
+	if dir.Template == nil {
+		return nil, errors.New("no template")
+	}
+
+	// test template execution
+	if err := dir.Template.ExecuteTemplate(io.Discard, "html", TemplateData{
+		Dir:     dir,
+		Request: httptest.NewRequest(http.MethodGet, dir.URLPath, nil),
+	}); err != nil {
+		return nil, err
+	}
+
 	return func(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
 		if len(reqpath) > 0 {
 			return true
 		}
-
-		if dir.Template != nil {
-			var buf bytes.Buffer
-			err := dir.Template.ExecuteTemplate(&buf, "html", TemplateData{
-				Dir:     dir,
-				Request: r,
-			})
-			if err != nil {
-				buf.Reset()
-				errExecuteTemplate.Execute(&buf, err)
-			}
-			io.Copy(w, &buf)
-		}
+		dir.Template.ExecuteTemplate(w, "html", TemplateData{
+			Dir:     dir,
+			Request: r,
+		}) // ignore error, assume that initial execution test was enough
 		return false
-	}
+	}, nil
 }
 
 type TemplateData struct {
@@ -73,15 +77,11 @@ type TemplateData struct {
 // ExecuteTemplate executes the named template from dir.Template (not from data.Dir).
 // If an error is returned, a template with an error message is executed.
 // Use this function to embed content of a specific Dir, e.g. a blog post preview.
-func (data TemplateData) ExecuteTemplate(dir *Dir, name string) template.HTML {
+func (data TemplateData) ExecuteTemplate(dir *Dir, name string) (template.HTML, error) {
 	var buf bytes.Buffer
 	err := dir.Template.ExecuteTemplate(&buf, name, TemplateData{
 		Dir:     dir,
 		Request: data.Request,
 	})
-	if err != nil {
-		buf.Reset()
-		errExecuteTemplate.Execute(&buf, err)
-	}
-	return template.HTML(buf.String())
+	return template.HTML(buf.String()), err
 }

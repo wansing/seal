@@ -1,6 +1,7 @@
 package seal
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,13 +12,36 @@ import (
 
 var updateLimiter = rate.NewLimiter(rate.Every(time.Minute), 2)
 
+type Error struct {
+	URLPath string `json:"urlpath"`
+	Message string `json:"message"`
+}
+
 type Server struct {
+	Errs []Error
 	Repo *Repository
 }
 
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
 	srv.Repo.Serve(reqpath, w, r)
+}
+
+func (srv *Server) ErrorsHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "\t")
+		enc.Encode(srv.Errs)
+	}
+}
+
+func (srv *Server) Update() error {
+	var errs = []Error{} // initialize it to get json "[]" instead of "null"
+	if err := srv.Repo.Update(nil, &errs); err != nil {
+		return err
+	}
+	srv.Errs = errs
+	return nil
 }
 
 func (srv *Server) UpdateHandler(secret string) http.HandlerFunc {
@@ -33,7 +57,7 @@ func (srv *Server) UpdateHandler(secret string) http.HandlerFunc {
 			return
 		}
 		start := time.Now()
-		if err := srv.Repo.Update(nil); err != nil {
+		if err := srv.Update(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return

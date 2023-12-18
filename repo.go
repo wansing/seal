@@ -65,14 +65,14 @@ func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.R
 }
 
 // Update reloads repo.Root.
-func (repo *Repository) Update(parent *Dir) error {
+func (repo *Repository) Update(parent *Dir, errs *[]Error) error {
 	var parentTmpl *template.Template
 	var baseURLPath = "/"
 	if parent != nil {
 		parentTmpl = parent.Template
 		baseURLPath = parent.URLPath
 	}
-	return repo.Root.Load(repo.Conf, parentTmpl, baseURLPath)
+	return repo.Root.Load(repo.Conf, parentTmpl, baseURLPath, errs)
 }
 
 // MakeGitUpdateHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the repo root dir, then updates the server.
@@ -133,7 +133,7 @@ func (repo *Repository) GitUpdateHandler(secret string, srv *Server) http.Handle
 			return
 		}
 
-		if err := srv.Repo.Update(nil); err != nil {
+		if err := srv.Update(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return

@@ -61,7 +61,7 @@ var srv = &Server{
 }
 
 func TestSeal(t *testing.T) {
-	if err := srv.Repo.Update(nil); err != nil {
+	if err := srv.Update(); err != nil {
 		t.Fatal(err)
 	}
 	go http.ListenAndServe("127.0.0.1:8081", srv)
@@ -110,7 +110,7 @@ func TestUpdate(t *testing.T) {
 		Data: []byte(`# Updated`),
 	}
 
-	srv.Repo.Update(nil)
+	srv.Update()
 	time.Sleep(100 * time.Millisecond)
 
 	input := "/"
