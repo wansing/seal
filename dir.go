@@ -3,14 +3,15 @@ package seal
 import (
 	"html/template"
 	"io/fs"
-	"path/filepath"
+	"net/url"
+	"path"
 	"strings"
 )
 
 // A Dir represents a filesystem directory.
 type Dir struct {
-	Fsys    fs.FS // allows for testing
-	URLPath string
+	Fsys    fs.FS  // allows for testing
+	URLPath string // with leading slash
 	// routing
 	Subdirs map[string]*Dir
 	// handling
@@ -39,7 +40,7 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 			continue
 		}
 
-		ext := filepath.Ext(entry.Name())
+		ext := path.Ext(entry.Name())
 		stem := strings.TrimSuffix(entry.Name(), ext)
 
 		// Handlers[filename]
@@ -83,7 +84,7 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 	// subdirs
 	var subdirs = make(map[string]*Dir)
 	for _, entry := range entries {
-		if !entry.IsDir() || entry.Name() == "" || entry.Name() == "." || entry.Name() == ".." {
+		if !entry.IsDir() || entry.Name() == "" || entry.Name() == "." || entry.Name() == ".." || strings.HasPrefix(entry.Name(), ".") { // skip hidden subdirs
 			continue
 		}
 
@@ -94,7 +95,9 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 		var subdir = &Dir{
 			Fsys: subfsys,
 		}
-		if err := subdir.Load(config, templates, filepath.Join(urlpath, entry.Name()), errs); err != nil {
+
+		urlitem := Slugify(entry.Name())
+		if err := subdir.Load(config, templates, path.Join(urlpath, urlitem), errs); err != nil {
 			return err
 		}
 
@@ -116,4 +119,12 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 	}
 
 	return nil
+}
+
+func Slugify(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "-")
+	s = url.PathEscape(s) // just in case
+	return s
 }
