@@ -120,14 +120,14 @@ func (repo *Repository) GitUpdateHandler(secret string, srv *Server) http.Handle
 		fetch.Dir = repo.RootDir
 		if err := fetch.Run(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("error running git fetch"))
+			fmt.Fprintf(w, "error running git fetch: %v", err)
 			return
 		}
 		reset := exec.Command("git", "reset", "--hard", "origin")
 		reset.Dir = repo.RootDir
 		if err := reset.Run(); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("error running git reset"))
+			fmt.Fprintf(w, "error running git reset: %v", err)
 			return
 		}
 
