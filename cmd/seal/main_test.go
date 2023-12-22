@@ -40,6 +40,13 @@ var testFS = fstest.MapFS{
 	"nested-definitions/foo.html": &fstest.MapFile{
 		Data: []byte(`This is ignored. {{define "main"}}This is main.{{end}}`),
 	},
+	"other/other-repo": &fstest.MapFile{},
+}
+
+var otherFS = fstest.MapFS{
+	"main.md": &fstest.MapFile{
+		Data: []byte(`# Other repository`),
+	},
 }
 
 var config = seal.Config{
@@ -57,8 +64,21 @@ var repo = &seal.Repository{
 	Fsys: testFS,
 }
 
+var otherRepo = &seal.Repository{
+	Conf: config,
+	Fsys: otherFS,
+}
+
 var srv = &seal.Server{
 	Repo: repo,
+}
+
+func init() {
+	config.Handlers["other-repo"] = func(dir *seal.Dir, filestem string, filecontent []byte) (seal.Handler, error) {
+		var errs = []seal.Error{}
+		_ = otherRepo.Update(dir, &errs)
+		return otherRepo.Serve, nil
+	}
 }
 
 func TestSeal(t *testing.T) {
@@ -83,6 +103,8 @@ func TestSeal(t *testing.T) {
 		{input: "/redirect-absolute-path", want: `<a href="/path">See Other</a>.`},
 		{input: "/redirect-relative-path", want: `<a href="/redirect-relative-path/path">See Other</a>.`},
 		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
+		{input: "/other", want: `<html><body><main><h1>Other repository</h1>
+</main></body></html>`},
 	}
 
 	// don't follow redirects
