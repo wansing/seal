@@ -3,6 +3,7 @@ package seal
 import (
 	"fmt"
 	"html/template"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -13,16 +14,16 @@ import (
 
 type Repository struct {
 	Conf    Config
-	Root    *Dir
+	Fsys    fs.FS
 	RootDir string // for git update
+
+	root *Dir // set by Update
 }
 
 func MakeDirRepository(config Config, dir string) *Repository {
 	return &Repository{
-		Conf: config,
-		Root: &Dir{
-			Fsys: os.DirFS(dir),
-		},
+		Conf:    config,
+		Fsys:    os.DirFS(dir),
 		RootDir: dir,
 	}
 }
@@ -31,7 +32,7 @@ func MakeDirRepository(config Config, dir string) *Repository {
 //
 // Serve always returns false. The return value exists for compatibility with type Handler.
 func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
-	dir := repo.Root
+	dir := repo.root
 	for {
 		if dir.Handler != nil {
 			cont := dir.Handler(reqpath, w, r)
@@ -54,7 +55,7 @@ func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.R
 
 		// no subdir with that name found, but maybe a file
 		if r.Method == http.MethodGet && len(reqpath) == 1 {
-			http.FileServer(http.FS(repo.Root.Fsys)).ServeHTTP(w, r) // only works with server repository at the moment
+			http.FileServer(http.FS(repo.Fsys)).ServeHTTP(w, r) // only works with server repository at the moment
 			// http.ServeFileFS(w, r, dir.Fsys, reqpath[0]) // use this from go 1.22
 			return false
 		}
@@ -64,7 +65,7 @@ func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.R
 	}
 }
 
-// Update reloads repo.Root.
+// Update sets repo.Root.
 func (repo *Repository) Update(parent *Dir, errs *[]Error) error {
 	var parentTmpl *template.Template
 	var baseURLPath = "/"
@@ -72,7 +73,13 @@ func (repo *Repository) Update(parent *Dir, errs *[]Error) error {
 		parentTmpl = parent.Template
 		baseURLPath = parent.URLPath
 	}
-	return repo.Root.Load(repo.Conf, parentTmpl, baseURLPath, errs)
+
+	dir, err := Load(repo.Conf, parentTmpl, repo.Fsys, baseURLPath, errs)
+	if err != nil {
+		return err
+	}
+	repo.root = dir
+	return nil
 }
 
 // MakeGitUpdateHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the repo root dir, then updates the server.

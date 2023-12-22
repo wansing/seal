@@ -20,21 +20,27 @@ type Dir struct {
 }
 
 // Load recursively loads dir.Subdirs, dir.Handler and dir.Template from dir.Fsys. If no handler is specified, the template handler is used.
-func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath string, errs *[]Error) error {
+func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath string, errs *[]Error) (*Dir, error) {
 	if parentTmpl == nil {
 		parentTmpl = template.New("")
 	}
 
-	entries, err := fs.ReadDir(dir.Fsys, ".")
+	tmpl, _ := parentTmpl.Clone()
+	dir := &Dir{
+		Fsys:     fsys,
+		URLPath:  urlpath,
+		Template: tmpl,
+	}
+
+	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// files
 	var handlerGen HandlerGen
 	var handlerGenFilestem string    // HandlerGen argument
 	var handlerGenFilecontent []byte // HandlerGen argument
-	var templates, _ = parentTmpl.Clone()
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -45,9 +51,9 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 
 		// Handlers[filename]
 		if gen, ok := config.Handlers[entry.Name()]; ok {
-			filecontent, err := fs.ReadFile(dir.Fsys, entry.Name())
+			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
-				return err
+				return nil, err
 			}
 			handlerGen = gen
 			handlerGenFilecontent = filecontent
@@ -56,9 +62,9 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 
 		// Handlers[ext]
 		if gen, ok := config.Handlers[ext]; ok {
-			filecontent, err := fs.ReadFile(dir.Fsys, entry.Name())
+			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
-				return err
+				return nil, err
 			}
 			handlerGen = gen
 			handlerGenFilestem = stem
@@ -68,12 +74,11 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 
 		// Content
 		if contentFunc, ok := config.Content[ext]; ok {
-			filecontent, err := fs.ReadFile(dir.Fsys, entry.Name())
+			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
-				return err
+				return nil, err
 			}
-			tmpl := templates.New(stem)
-			err = contentFunc(urlpath, filecontent, tmpl)
+			err = contentFunc(dir, stem, filecontent)
 			if err != nil {
 				*errs = append(*errs, Error{urlpath, err.Error()})
 			}
@@ -82,31 +87,22 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 	}
 
 	// subdirs
-	var subdirs = make(map[string]*Dir)
+	dir.Subdirs = make(map[string]*Dir)
 	for _, entry := range entries {
 		if !entry.IsDir() || entry.Name() == "" || entry.Name() == "." || entry.Name() == ".." || strings.HasPrefix(entry.Name(), ".") { // skip hidden subdirs
 			continue
 		}
 
-		subfsys, err := fs.Sub(dir.Fsys, entry.Name())
+		subfsys, err := fs.Sub(fsys, entry.Name())
 		if err != nil {
-			return err
+			return nil, err
 		}
-		var subdir = &Dir{
-			Fsys: subfsys,
+		subdir, err := Load(config, tmpl, subfsys, path.Join(urlpath, Slugify(entry.Name())), errs)
+		if err != nil {
+			return nil, err
 		}
-
-		urlitem := Slugify(entry.Name())
-		if err := subdir.Load(config, templates, path.Join(urlpath, urlitem), errs); err != nil {
-			return err
-		}
-
-		subdirs[entry.Name()] = subdir
+		dir.Subdirs[entry.Name()] = subdir
 	}
-
-	dir.URLPath = urlpath
-	dir.Subdirs = subdirs
-	dir.Template = templates
 
 	// generate handler at the end, when the rest of Dir is complete
 	if handlerGen != nil {
@@ -118,7 +114,7 @@ func (dir *Dir) Load(config Config, parentTmpl *template.Template, urlpath strin
 		*errs = append(*errs, Error{urlpath, err.Error()})
 	}
 
-	return nil
+	return dir, nil
 }
 
 func Slugify(s string) string {

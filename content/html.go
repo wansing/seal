@@ -1,12 +1,12 @@
 package content
 
 import (
-	"html/template"
+	"github.com/wansing/seal"
 )
 
-// Html parses the input as an html template using Golang's templating engine.
+// Html parses the filecontent as an html template using Golang's templating engine.
 // The template variable $dir is set to dirpath.
-func Html(dirpath string, input []byte, tmpl *template.Template) error {
+func Html(dir *seal.Dir, filestem string, filecontent []byte) error {
 	// We want to create links and embed images which are relative to a directory.
 	//
 	// Rewriting <a href="..."> and <img src="..."> is hard because:
@@ -18,8 +18,8 @@ func Html(dirpath string, input []byte, tmpl *template.Template) error {
 	// Instead, let's pass the directory to the template through a variable $dir.
 	// We have to inject the template action before parsing, else parsing fails when trying to access $dir.
 	// This does only work for the main template, not for {{define}}'d templates.
-	htm := `{{$dir := "` + dirpath + `"}}` + string(input)
+	htm := `{{$dir := "` + dir.URLPath + `"}}` + string(filecontent)
 
-	_, err := tmpl.Parse(htm)
+	_, err := dir.Template.New(filestem).Parse(htm)
 	return err
 }

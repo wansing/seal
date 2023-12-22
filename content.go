@@ -1,6 +1,4 @@
 package seal
 
-import "html/template"
-
-// A ContentFunc populates a template from a given file content.
-type ContentFunc func(urlpath string, filecontent []byte, tmpl *template.Template) error
+// A ContentFunc processes file content, e. g. by populating dir.Template.New(filestem).
+type ContentFunc func(dir *Dir, filestem string, filecontent []byte) error

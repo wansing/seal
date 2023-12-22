@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/icza/gox/timex"
+	"github.com/wansing/seal"
 )
 
 type countdownData struct {
@@ -20,8 +21,8 @@ type countdownData struct {
 	Seconds int
 }
 
-func Countdown(dirpath string, input []byte, tmpl *template.Template) error {
-	isoEnd, tmplHtml, _ := strings.Cut(string(input), "\n")
+func Countdown(dir *seal.Dir, filestem string, filecontent []byte) error {
+	isoEnd, tmplHtml, _ := strings.Cut(string(filecontent), "\n")
 
 	isoEnd = strings.TrimSpace(isoEnd)
 	if isoEnd == "" {
@@ -43,7 +44,7 @@ func Countdown(dirpath string, input []byte, tmpl *template.Template) error {
 			<span id="seconds">{{$seconds}}</span> seconds`
 	}
 
-	_, err = tmpl.Funcs(template.FuncMap{
+	_, err = dir.Template.New(filestem).Funcs(template.FuncMap{
 		"Countdown": func() countdownData {
 			years, months, days, hours, minutes, seconds := timex.Diff(time.Now(), end) // respects leap years
 			return countdownData{

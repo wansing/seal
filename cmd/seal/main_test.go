@@ -1,4 +1,4 @@
-package seal
+package main
 
 import (
 	"io"
@@ -8,6 +8,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/wansing/seal"
 	"github.com/wansing/seal/content"
 )
 
@@ -41,22 +42,22 @@ var testFS = fstest.MapFS{
 	},
 }
 
-var repo = &Repository{
-	Conf: Config{
-		Content: map[string]ContentFunc{
-			".html": content.Html,
-			".md":   content.Commonmark,
-		},
-		Handlers: map[string]HandlerGen{
-			"redirect": MakeRedirectHandler,
-		},
+var config = seal.Config{
+	Content: map[string]seal.ContentFunc{
+		".html": content.Html,
+		".md":   content.Commonmark,
 	},
-	Root: &Dir{
-		Fsys: testFS,
+	Handlers: map[string]seal.HandlerGen{
+		"redirect": seal.MakeRedirectHandler,
 	},
 }
 
-var srv = &Server{
+var repo = &seal.Repository{
+	Conf: config,
+	Fsys: testFS,
+}
+
+var srv = &seal.Server{
 	Repo: repo,
 }
 

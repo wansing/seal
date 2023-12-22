@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/wansing/seal"
 	"github.com/wansing/seal/content/calendar"
 	"github.com/wansing/shiftpad/ical"
 )
@@ -16,23 +17,23 @@ type CalendarBS5 struct {
 	Config ical.Config // default url: file content
 }
 
-func (cal CalendarBS5) Parse(dirpath string, input []byte, tmpl *template.Template) error {
+func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte) error {
 	var anchor = cal.Anchor
 	if anchor == "" {
-		anchor = filepath.Base(dirpath)
+		anchor = filepath.Base(dir.URLPath)
 	}
 
 	var config = cal.Config
 	if config == (ical.Config{}) {
 		config = ical.Config{
-			URL: string(input),
+			URL: string(filecontent),
 		}
 	}
 	feed := &ical.FeedCache{
 		Config: config,
 	}
 
-	_, err := tmpl.Funcs(template.FuncMap{
+	_, err := dir.Template.New(filestem).Funcs(template.FuncMap{
 		"CalendarBS5": func(r *http.Request) (*calendar.Month, error) {
 			year, _ := strconv.Atoi(r.URL.Query().Get("year"))
 			month, _ := strconv.Atoi(r.URL.Query().Get("month"))
