@@ -14,6 +14,10 @@ func main() {
 	if listen == "" {
 		listen = "127.0.0.1:8080"
 	}
+	secret := os.Getenv("SECRET")
+	if secret == "" {
+		secret = "change-me"
+	}
 
 	config := seal.Config{
 		Content: map[string]seal.ContentFunc{
@@ -38,8 +42,8 @@ func main() {
 
 	log.Printf("listening to %s", listen)
 	http.HandleFunc("/errors", srv.ErrorsHandler())
-	http.HandleFunc("/update", srv.UpdateHandler("change-me"))
-	http.HandleFunc("/git-update-root", rootRepo.GitUpdateHandler("change-me", srv))
+	http.HandleFunc("/update", srv.UpdateHandler(secret))
+	http.HandleFunc("/git-update-root", rootRepo.GitUpdateHandler(secret, srv))
 	http.Handle("/", srv)
 	http.ListenAndServe(listen, nil)
 }
