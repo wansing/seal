@@ -19,7 +19,7 @@ type Dir struct {
 	Template *template.Template
 }
 
-// Load recursively loads dir.Subdirs, dir.Handler and dir.Template from dir.Fsys. If no handler is specified, the template handler is used.
+// Load creates a *Dir from the given fsys.
 func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath string, errs *[]Error) (*Dir, error) {
 	if parentTmpl == nil {
 		parentTmpl = template.New("")
