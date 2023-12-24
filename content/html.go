@@ -5,7 +5,8 @@ import (
 )
 
 // Html parses the filecontent as an html template using Golang's templating engine.
-// The template variable $dir is set to dirpath.
+//
+// The template variable $dir is set to the URLPath of the dir where the content file is located.
 func Html(dir *seal.Dir, filestem string, filecontent []byte) error {
 	// We want to create links and embed images which are relative to a directory.
 	//
