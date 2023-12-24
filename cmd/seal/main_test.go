@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"io/fs"
 	"net/http"
 	"strings"
 	"testing"
@@ -39,6 +40,9 @@ var testFS = fstest.MapFS{
 	},
 	"nested-definitions/foo.html": &fstest.MapFile{
 		Data: []byte(`This is ignored. {{define "main"}}This is main.{{end}}`),
+	},
+	"empty-dir": &fstest.MapFile{
+		Mode: fs.ModeDir,
 	},
 	"other/other-repo": &fstest.MapFile{},
 }
@@ -103,6 +107,7 @@ func TestSeal(t *testing.T) {
 		{input: "/redirect-absolute-path", want: `<a href="/path">See Other</a>.`},
 		{input: "/redirect-relative-path", want: `<a href="/redirect-relative-path/path">See Other</a>.`},
 		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
+		{input: "/empty-dir", want: `404 page not found`},
 		{input: "/other", want: `<html><body><main><h1>Other repository</h1>
 </main></body></html>`},
 	}

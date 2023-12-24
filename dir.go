@@ -38,6 +38,7 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 	}
 
 	// files
+	var containsContent = false
 	var handlerGen HandlerGen
 	var handlerGenFilestem string    // HandlerGen argument
 	var handlerGenFilecontent []byte // HandlerGen argument
@@ -74,6 +75,7 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 
 		// Content
 		if contentFunc, ok := config.Content[ext]; ok {
+			containsContent = true
 			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
 				return nil, err
@@ -108,7 +110,10 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 	if handlerGen != nil {
 		dir.Handler, err = handlerGen(dir, handlerGenFilestem, handlerGenFilecontent)
 	} else {
-		dir.Handler, err = MakeTemplateHandler(dir, "", nil)
+		if containsContent {
+			dir.Handler, err = MakeTemplateHandler(dir, "", nil)
+		}
+		// else no template handler because it would probably display duplicate content
 	}
 	if err != nil {
 		*errs = append(*errs, Error{urlpath, err.Error()})
