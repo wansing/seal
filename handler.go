@@ -43,14 +43,14 @@ func MakeRedirectHandler(_ *Dir, _ string, filecontent []byte) (Handler, error) 
 	}, nil
 }
 
-// MakeTemplateHandler returns a Handler which executes the "html" template from dir.Template if reqpath is empty.
+// MakeTemplateHandler returns a Handler which, if reqpath is empty, executes dir.Template with TemplateData.
 func MakeTemplateHandler(dir *Dir, _ string, _ []byte) (Handler, error) {
 	if dir.Template == nil {
 		return nil, errors.New("no template")
 	}
 
 	// test template execution
-	if err := dir.Template.ExecuteTemplate(io.Discard, "html", TemplateData{
+	if err := dir.Template.Execute(io.Discard, TemplateData{
 		Dir:     dir,
 		Request: httptest.NewRequest(http.MethodGet, dir.URLPath, nil), // target parameter must not contain spaces
 	}); err != nil {
@@ -61,7 +61,7 @@ func MakeTemplateHandler(dir *Dir, _ string, _ []byte) (Handler, error) {
 		if len(reqpath) > 0 {
 			return true
 		}
-		dir.Template.ExecuteTemplate(w, "html", TemplateData{
+		dir.Template.Execute(w, TemplateData{
 			Dir:     dir,
 			Request: r,
 		}) // ignore error, assume that initial execution test was enough
