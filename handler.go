@@ -49,8 +49,12 @@ func MakeTemplateHandler(dir *Dir, _ string, _ []byte) (Handler, error) {
 		return nil, errors.New("no template")
 	}
 
-	// test template execution
-	if err := dir.Template.Execute(io.Discard, TemplateData{
+	// test template execution, clone before so dir.Template can be extended later
+	t, err := dir.Template.Clone()
+	if err != nil {
+		return nil, err
+	}
+	if err := t.Execute(io.Discard, TemplateData{
 		Dir:     dir,
 		Request: httptest.NewRequest(http.MethodGet, dir.URLPath, nil), // target parameter must not contain spaces
 	}); err != nil {
