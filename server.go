@@ -19,6 +19,12 @@ type Server struct {
 }
 
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// remove trailing slash in GET requests, except for root
+	if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/") && r.URL.Path != "/" {
+		http.Redirect(w, r, strings.TrimRight(r.URL.Path, "/"), http.StatusMovedPermanently)
+		return
+	}
+
 	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
 	srv.Repo.Serve(reqpath, w, r)
 }
