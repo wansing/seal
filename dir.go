@@ -99,11 +99,16 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 		if err != nil {
 			return nil, err
 		}
-		subdir, err := Load(config, tmpl, subfsys, path.Join(urlpath, Slugify(entry.Name())), errs)
+		subdir, err := Load(config, dir.Template, subfsys, path.Join(urlpath, Slugify(entry.Name())), errs)
 		if err != nil {
 			return nil, err
 		}
 		dir.Subdirs[entry.Name()] = subdir
+	}
+
+	// make dir.Template.Execute work without specifying a template name
+	if h := dir.Template.Lookup("html"); h != nil {
+		dir.Template = h
 	}
 
 	// generate handler at the end, when the rest of Dir is complete
