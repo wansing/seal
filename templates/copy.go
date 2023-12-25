@@ -5,8 +5,8 @@ import (
 	"html/template"
 )
 
-// Rename returns a clone of t where the template src is renamed to dst, overwriting any previous dst template.
-func Rename(t *template.Template, dst, src string) (*template.Template, error) {
+// Copy returns a clone of t where the parse tree of the template named src is added as dst, overwriting any previous dst template.
+func Copy(t *template.Template, dst, src string) (*template.Template, error) {
 	srcTemplate := t.Lookup(src)
 	if srcTemplate == nil {
 		return nil, fmt.Errorf(`template "%s" not defined`, src)
