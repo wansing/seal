@@ -3,7 +3,6 @@ package seal
 import (
 	"html/template"
 	"io/fs"
-	"net/url"
 	"path"
 	"strings"
 )
@@ -128,9 +127,15 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 }
 
 func Slugify(s string) string {
-	s = strings.TrimSpace(s)
 	s = strings.ToLower(s)
-	s = strings.ReplaceAll(s, " ", "-")
-	s = url.PathEscape(s) // just in case
-	return s
+	strs := strings.FieldsFunc(s, func(r rune) bool {
+		if '0' <= r && r <= '9' {
+			return false
+		}
+		if 'a' <= r && r <= 'z' {
+			return false
+		}
+		return true
+	})
+	return strings.Join(strs, "-")
 }
