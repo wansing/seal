@@ -9,6 +9,7 @@ import (
 
 // A Dir represents a filesystem directory.
 type Dir struct {
+	Data    map[string]any
 	Fsys    fs.FS  // allows for testing
 	URLPath string // with leading slash
 	// routing
@@ -26,6 +27,7 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 
 	tmpl, _ := parentTmpl.Clone()
 	dir := &Dir{
+		Data:     make(map[string]any),
 		Fsys:     fsys,
 		URLPath:  urlpath,
 		Template: tmpl,
