@@ -143,13 +143,16 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 	return dir, nil
 }
 
+// Slugify returns a modified version of the given string with [a-zA-Z0-9] retained and a dash in each gap.
 func Slugify(s string) string {
-	s = strings.ToLower(s)
 	strs := strings.FieldsFunc(s, func(r rune) bool {
-		if '0' <= r && r <= '9' {
+		if 'a' <= r && r <= 'z' {
 			return false
 		}
-		if 'a' <= r && r <= 'z' {
+		if 'A' <= r && r <= 'Z' {
+			return false
+		}
+		if '0' <= r && r <= '9' {
 			return false
 		}
 		return true
