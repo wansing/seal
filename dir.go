@@ -19,6 +19,21 @@ type Dir struct {
 	Template *template.Template
 }
 
+// HasTemplate returns whether dir.Templates contains a non-empty subtemplate with the given name.
+//
+// Note that templates are first parsed and then excecuted, and that HasTemplate is called during execution.
+// Parsing will fail if a subtemplate is not defined, even if it is not executed later.
+// You can use {{block}} to define an empty fallback template:
+//
+//	{{if .HasTemplate "preface"}}
+//	  <h1>Preface</h1>
+//	  {{block "preface" .}}{{end}}
+//	{{end}}
+func (dir *Dir) HasTemplate(name string) bool {
+	t := dir.Template.Lookup(name)
+	return t != nil && t.Tree != nil && t.Tree.Root != nil && len(t.Tree.Root.Nodes) > 0
+}
+
 // Load creates a *Dir from the given fsys.
 func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath string, errs *[]Error) (*Dir, error) {
 	if parentTmpl == nil {
