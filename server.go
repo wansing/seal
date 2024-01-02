@@ -14,8 +14,8 @@ type Error struct {
 }
 
 type Server struct {
-	Errs []Error
 	Repo *Repository
+	Errs []Error
 }
 
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +29,7 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	srv.Repo.Serve(reqpath, w, r)
 }
 
+// ErrorsHandler returns a handler which sends srv.Errs in JSON.
 func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		enc := json.NewEncoder(w)
@@ -37,6 +38,7 @@ func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	}
 }
 
+// Update calls srv.Repo.Update and updates srv.Errs.
 func (srv *Server) Update() error {
 	var errs = []Error{} // initialize it to get json "[]" instead of "null"
 	if err := srv.Repo.Update(nil, &errs); err != nil {
@@ -46,6 +48,7 @@ func (srv *Server) Update() error {
 	return nil
 }
 
+// UpdateHandler returns a rate-limited handler which calls srv.Update.
 func (srv *Server) UpdateHandler(secret string) http.HandlerFunc {
 	limitedUpdate := Limit(time.Minute, 2, func() {
 		srv.Update() // ignore returned error
