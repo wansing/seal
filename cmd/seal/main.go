@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"log"
 	"net/http"
 	"os"
@@ -16,7 +18,12 @@ func main() {
 	}
 	secret := os.Getenv("SECRET")
 	if secret == "" {
-		secret = "change-me"
+		var bs = make([]byte, 16)
+		if _, err := rand.Read(bs); err != nil {
+			log.Fatalf("error making random secret: %v", err)
+		}
+		secret = base64.RawURLEncoding.EncodeToString(bs)
+		log.Printf("generated temporary reload secret: %s", secret)
 	}
 
 	config := seal.Config{
