@@ -38,20 +38,20 @@ func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	}
 }
 
-// Update calls srv.Repo.Update and updates srv.Errs.
-func (srv *Server) Update() error {
+// Reload calls srv.Repo.Reload and updates srv.Errs.
+func (srv *Server) Reload() error {
 	var errs = []Error{} // initialize it to get json "[]" instead of "null"
-	if err := srv.Repo.Update(nil, &errs); err != nil {
+	if err := srv.Repo.Reload(nil, &errs); err != nil {
 		return err
 	}
 	srv.Errs = errs
 	return nil
 }
 
-// UpdateHandler returns a rate-limited handler which calls srv.Update.
-func (srv *Server) UpdateHandler(secret string) http.HandlerFunc {
-	limitedUpdate := Limit(time.Minute, 2, func() {
-		srv.Update() // ignore returned error
+// ReloadHandler returns a rate-limited handler which calls srv.Reload.
+func (srv *Server) ReloadHandler(secret string) http.HandlerFunc {
+	limitedReload := Limit(time.Minute, 2, func() {
+		srv.Reload() // ignore returned error
 	})
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("secret") != secret {
@@ -61,10 +61,10 @@ func (srv *Server) UpdateHandler(secret string) http.HandlerFunc {
 		}
 
 		start := time.Now()
-		if done := limitedUpdate(); done {
-			w.Write([]byte(fmt.Sprintf("update took %d milliseconds", time.Since(start).Milliseconds())))
+		if done := limitedReload(); done {
+			w.Write([]byte(fmt.Sprintf("reload took %d milliseconds", time.Since(start).Milliseconds())))
 		} else {
-			w.Write([]byte("update scheduled"))
+			w.Write([]byte("reload scheduled"))
 		}
 	}
 }

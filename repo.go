@@ -15,9 +15,9 @@ import (
 type Repository struct {
 	Conf    Config
 	Fsys    fs.FS
-	RootDir string // for git update
+	RootDir string // for git reload
 
-	root *Dir // set by Update
+	root *Dir // set by Reload
 }
 
 func MakeDirRepository(config Config, dir string) *Repository {
@@ -65,8 +65,8 @@ func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.R
 	}
 }
 
-// Update sets repo.Root.
-func (repo *Repository) Update(parent *Dir, errs *[]Error) error {
+// Reload updates repo.Root.
+func (repo *Repository) Reload(parent *Dir, errs *[]Error) error {
 	var parentTmpl *template.Template
 	var baseURLPath = "/"
 	if parent != nil {
@@ -82,17 +82,17 @@ func (repo *Repository) Update(parent *Dir, errs *[]Error) error {
 	return nil
 }
 
-// MakeGitUpdateHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the repo root dir, then updates the server.
+// GitReloadHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the repo root dir, then reloads the server.
 //
 // We can't distinguish between local commits (which should be kept) and upstream history rewrites (which can be dropped).
 // Thus it fails if there are local changes and refuses to run from an interactive terminal.
 // You should know about "git reflog".
-func (repo *Repository) GitUpdateHandler(secret string, srv *Server) http.HandlerFunc {
+func (repo *Repository) GitReloadHandler(secret string, srv *Server) http.HandlerFunc {
 	if repo.RootDir == "" {
 		return http.NotFound
 	}
-	limitedUpdate := Limit(time.Minute, 2, func() {
-		srv.Update() // ignore returned error
+	limitedReload := Limit(time.Minute, 2, func() {
+		srv.Reload() // ignore returned error
 	})
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("secret") != secret {
@@ -102,7 +102,7 @@ func (repo *Repository) GitUpdateHandler(secret string, srv *Server) http.Handle
 		}
 		if isatty.IsTerminal(os.Stdout.Fd()) {
 			w.WriteHeader(http.StatusNotImplemented)
-			w.Write([]byte("git update has no effect when running in a terminal"))
+			w.Write([]byte("git reload has no effect when running in a terminal"))
 			return
 		}
 
@@ -138,10 +138,10 @@ func (repo *Repository) GitUpdateHandler(secret string, srv *Server) http.Handle
 			return
 		}
 
-		if done := limitedUpdate(); done {
-			w.Write([]byte(fmt.Sprintf("git-update took %d milliseconds", time.Since(start).Milliseconds())))
+		if done := limitedReload(); done {
+			w.Write([]byte(fmt.Sprintf("git reload took %d milliseconds", time.Since(start).Milliseconds())))
 		} else {
-			w.Write([]byte("git-update scheduled"))
+			w.Write([]byte("git reload scheduled"))
 		}
 	}
 }

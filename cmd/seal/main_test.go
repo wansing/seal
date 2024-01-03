@@ -80,13 +80,13 @@ var srv = &seal.Server{
 func init() {
 	config.Handlers["other-repo"] = func(dir *seal.Dir, filestem string, filecontent []byte) (seal.Handler, error) {
 		var errs = []seal.Error{}
-		_ = otherRepo.Update(dir, &errs)
+		_ = otherRepo.Reload(dir, &errs)
 		return otherRepo.Serve, nil
 	}
 }
 
 func TestSeal(t *testing.T) {
-	if err := srv.Update(); err != nil {
+	if err := srv.Reload(); err != nil {
 		t.Fatal(err)
 	}
 	go http.ListenAndServe("127.0.0.1:8081", srv)
@@ -132,17 +132,17 @@ func TestSeal(t *testing.T) {
 	}
 }
 
-func TestUpdate(t *testing.T) {
+func TestReload(t *testing.T) {
 
 	testFS["main.md"] = &fstest.MapFile{
-		Data: []byte(`# Updated`),
+		Data: []byte(`# Reloaded`),
 	}
 
-	srv.Update()
+	srv.Reload()
 	time.Sleep(100 * time.Millisecond)
 
 	input := "/"
-	want := `<html><body><main><h1>Updated</h1>
+	want := `<html><body><main><h1>Reloaded</h1>
 </main></body></html>`
 
 	resp, err := http.DefaultClient.Get("http://127.0.0.1:8081" + input)

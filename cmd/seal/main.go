@@ -36,14 +36,14 @@ func main() {
 	srv := &seal.Server{
 		Repo: rootRepo,
 	}
-	if err := srv.Update(); err != nil {
-		log.Fatalf("error updating root repo: %v", err)
+	if err := srv.Reload(); err != nil {
+		log.Fatalf("error loading root repo: %v", err)
 	}
 
 	log.Printf("listening to %s", listen)
 	http.HandleFunc("/errors", srv.ErrorsHandler())
-	http.HandleFunc("/update", srv.UpdateHandler(secret))
-	http.HandleFunc("/git-update-root", rootRepo.GitUpdateHandler(secret, srv))
+	http.HandleFunc("/reload", srv.ReloadHandler(secret))
+	http.HandleFunc("/git-reload-root", rootRepo.GitReloadHandler(secret, srv))
 	http.Handle("/", srv)
 	http.ListenAndServe(listen, nil)
 }
