@@ -34,6 +34,11 @@ func (dir *Dir) HasTemplate(name string) bool {
 	return t != nil && t.Tree != nil && t.Tree.Root != nil && len(t.Tree.Root.Nodes) > 0
 }
 
+// String returns dir.URLPath with a trailing slash.
+func (dir *Dir) String() string {
+	return path.Join(dir.URLPath, "/")
+}
+
 // Load creates a *Dir from the given fsys.
 func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath string, errs *[]Error) (*Dir, error) {
 	if parentTmpl == nil {
