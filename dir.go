@@ -36,7 +36,10 @@ func (dir *Dir) HasTemplate(name string) bool {
 
 // String returns dir.URLPath with a trailing slash.
 func (dir *Dir) String() string {
-	return path.Join(dir.URLPath, "/")
+	if dir.URLPath == "/" {
+		return dir.URLPath
+	}
+	return dir.URLPath + "/"
 }
 
 // Load creates a *Dir from the given fsys.
