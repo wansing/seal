@@ -50,7 +50,7 @@ func main() {
 	log.Printf("listening to %s", listen)
 	http.HandleFunc("/errors", srv.ErrorsHandler())
 	http.HandleFunc("/reload", srv.ReloadHandler(secret))
-	http.HandleFunc("/git-reload-root", rootRepo.GitReloadHandler(secret, srv))
+	http.HandleFunc("/git-reload-root", seal.GitReloadHandler(secret, rootRepo.RootDir, srv.Reload))
 	http.Handle("/", srv)
 	http.ListenAndServe(listen, nil)
 }

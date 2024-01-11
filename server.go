@@ -50,9 +50,10 @@ func (srv *Server) Reload() error {
 
 // ReloadHandler returns a rate-limited handler which calls srv.Reload.
 func (srv *Server) ReloadHandler(secret string) http.HandlerFunc {
-	limitedReload := Limit(time.Minute, 2, func() {
-		srv.Reload() // ignore returned error
+	limitedReload := Limit(time.Minute, 2, func() error {
+		return srv.Reload()
 	})
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("secret") != secret {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -61,10 +62,20 @@ func (srv *Server) ReloadHandler(secret string) http.HandlerFunc {
 		}
 
 		start := time.Now()
-		if done := limitedReload(); done {
-			w.Write([]byte(fmt.Sprintf("reload took %d milliseconds", time.Since(start).Milliseconds())))
+		if done, err := limitedReload(); done {
+			if err == nil {
+				w.Write([]byte(fmt.Sprintf("reload took %d milliseconds", time.Since(start).Milliseconds())))
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("reload failed: %v", err)))
+			}
 		} else {
-			w.Write([]byte("reload scheduled"))
+			if err == nil {
+				w.Write([]byte("reload scheduled"))
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("reload scheduled, last execution returned error: %v", err)))
+			}
 		}
 	}
 }

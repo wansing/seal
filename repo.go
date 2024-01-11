@@ -1,6 +1,7 @@
 package seal
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -87,61 +88,64 @@ func (repo *Repository) Reload(parent *Dir, errs *[]Error) error {
 // We can't distinguish between local commits (which should be kept) and upstream history rewrites (which can be dropped).
 // Thus it fails if there are local changes and refuses to run from an interactive terminal.
 // You should know about "git reflog".
-func (repo *Repository) GitReloadHandler(secret string, srv *Server) http.HandlerFunc {
-	if repo.RootDir == "" {
+func GitReloadHandler(secret string, fsDir string, reload func() error) http.HandlerFunc {
+	if fsDir == "" {
 		return http.NotFound
 	}
-	limitedReload := Limit(time.Minute, 2, func() {
-		srv.Reload() // ignore returned error
+
+	limitedReload := Limit(time.Minute, 2, func() error {
+		if isatty.IsTerminal(os.Stdout.Fd()) {
+			return errors.New("git reload has no effect when running in a terminal")
+		}
+
+		status := exec.Command("git", "status", "--porcelain")
+		status.Dir = fsDir
+		localChanges, err := status.Output()
+		if err != nil {
+			return errors.New("error running git status")
+		}
+		if len(localChanges) > 0 {
+			return errors.New("git working copy has local changes")
+		}
+
+		// https://stackoverflow.com/questions/9813816/git-pull-after-forced-update
+		// this drops locals commits, however they can be restored with "git reflog" for a while
+		fetch := exec.Command("git", "fetch")
+		fetch.Dir = fsDir
+		if err := fetch.Run(); err != nil {
+			return fmt.Errorf("error running git fetch: %v", err)
+		}
+		reset := exec.Command("git", "reset", "--hard", "origin")
+		reset.Dir = fsDir
+		if err := reset.Run(); err != nil {
+			return fmt.Errorf("error running git reset: %v", err)
+		}
+
+		return reload()
 	})
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("secret") != secret {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("unauthorized"))
 			return
 		}
-		if isatty.IsTerminal(os.Stdout.Fd()) {
-			w.WriteHeader(http.StatusNotImplemented)
-			w.Write([]byte("git reload has no effect when running in a terminal"))
-			return
-		}
 
 		start := time.Now()
-		status := exec.Command("git", "status", "--porcelain")
-		status.Dir = repo.RootDir
-		localChanges, err := status.Output()
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("error running git status"))
-			return
-		}
-		if len(localChanges) > 0 {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("git working copy has local changes"))
-			return
-		}
-
-		// https://stackoverflow.com/questions/9813816/git-pull-after-forced-update
-		// this drops locals commits, however they can be restored with "git reflog" for a while
-		fetch := exec.Command("git", "fetch")
-		fetch.Dir = repo.RootDir
-		if err := fetch.Run(); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "error running git fetch: %v", err)
-			return
-		}
-		reset := exec.Command("git", "reset", "--hard", "origin")
-		reset.Dir = repo.RootDir
-		if err := reset.Run(); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "error running git reset: %v", err)
-			return
-		}
-
-		if done := limitedReload(); done {
-			w.Write([]byte(fmt.Sprintf("git reload took %d milliseconds", time.Since(start).Milliseconds())))
+		if done, err := limitedReload(); done {
+			if err == nil {
+				w.Write([]byte(fmt.Sprintf("git reload took %d milliseconds", time.Since(start).Milliseconds())))
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("git reload failed: %v", err)))
+			}
 		} else {
-			w.Write([]byte("git reload scheduled"))
+			if err == nil {
+				w.Write([]byte("git reload scheduled"))
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("git reload scheduled, last execution returned error: %v", err)))
+			}
 		}
 	}
 }
