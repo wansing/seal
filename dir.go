@@ -37,7 +37,7 @@ func (dir *Dir) HasTemplate(name string) bool {
 // String returns dir.URLPath with a trailing slash.
 func (dir *Dir) String() string {
 	if dir.URLPath == "/" {
-		return dir.URLPath
+		return "/"
 	}
 	return dir.URLPath + "/"
 }
