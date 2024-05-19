@@ -13,16 +13,16 @@ import (
 )
 
 type FS struct {
-	Fsys    fs.FS
-	RootDir string // for git reload
+	Fsys   fs.FS
+	GitDir string // for git reload, optional
 
 	root *Dir // set by Reload
 }
 
 func DirFS(dir string) *FS {
 	return &FS{
-		Fsys:    os.DirFS(dir),
-		RootDir: dir,
+		Fsys:   os.DirFS(dir),
+		GitDir: dir,
 	}
 }
 
@@ -62,13 +62,13 @@ func (fs *FS) Serve(reqpath []string, w http.ResponseWriter, r *http.Request) bo
 	}
 }
 
-// GitReloadHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the fs root dir, then reloads the server.
+// GitReloadHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in osDir, then reloads the server.
 //
 // We can't distinguish between local commits (which should be kept) and upstream history rewrites (which can be dropped).
 // Thus it fails if there are local changes and refuses to run from an interactive terminal.
 // You should know about "git reflog".
-func GitReloadHandler(secret string, fsDir string, reload func() error) http.HandlerFunc {
-	if fsDir == "" {
+func GitReloadHandler(secret string, osDir string, reload func() error) http.HandlerFunc {
+	if osDir == "" {
 		return http.NotFound
 	}
 
@@ -78,7 +78,7 @@ func GitReloadHandler(secret string, fsDir string, reload func() error) http.Han
 		}
 
 		status := exec.Command("git", "status", "--porcelain")
-		status.Dir = fsDir
+		status.Dir = osDir
 		localChanges, err := status.Output()
 		if err != nil {
 			return errors.New("error running git status")
@@ -90,12 +90,12 @@ func GitReloadHandler(secret string, fsDir string, reload func() error) http.Han
 		// https://stackoverflow.com/questions/9813816/git-pull-after-forced-update
 		// this drops locals commits, however they can be restored with "git reflog" for a while
 		fetch := exec.Command("git", "fetch")
-		fetch.Dir = fsDir
+		fetch.Dir = osDir
 		if err := fetch.Run(); err != nil {
 			return fmt.Errorf("error running git fetch: %v", err)
 		}
 		reset := exec.Command("git", "reset", "--hard", "origin")
-		reset.Dir = fsDir
+		reset.Dir = osDir
 		if err := reset.Run(); err != nil {
 			return fmt.Errorf("error running git reset: %v", err)
 		}
