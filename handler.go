@@ -17,9 +17,9 @@ type HandlerGen func(dir *Dir, filestem string, filecontent []byte) (Handler, er
 // A Handler responds to an HTTP request. It must return true if execution shall continue, false to stop execution.
 type Handler func(reqpath []string, w http.ResponseWriter, r *http.Request) bool
 
-// MakeRedirectHandler returns a Handler which does a HTTP 303 redirect if the (remaining) request path is empty.
+// RedirectHandler returns a Handler which does a HTTP 303 redirect if the (remaining) request path is empty.
 // The redirect target is taken from the file content. If the target is relative, the handler will prepend the request URL path.
-func MakeRedirectHandler(_ *Dir, _ string, filecontent []byte) (Handler, error) {
+func RedirectHandler(_ *Dir, _ string, filecontent []byte) (Handler, error) {
 	redir := strings.TrimSpace(string(filecontent))
 	var join = false
 	if uri, err := url.Parse(redir); err == nil {
@@ -43,8 +43,8 @@ func MakeRedirectHandler(_ *Dir, _ string, filecontent []byte) (Handler, error) 
 	}, nil
 }
 
-// MakeTemplateHandler returns a Handler which, if reqpath is empty, executes dir.Template with TemplateData.
-func MakeTemplateHandler(dir *Dir, _ string, _ []byte) (Handler, error) {
+// TemplateHandler returns a Handler which, if reqpath is empty, executes dir.Template with TemplateData.
+func TemplateHandler(dir *Dir, _ string, _ []byte) (Handler, error) {
 	if dir.Template == nil {
 		return nil, errors.New("no template")
 	}

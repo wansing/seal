@@ -34,7 +34,7 @@ func main() {
 			".md":           content.Commonmark,
 		},
 		Handlers: map[string]seal.HandlerGen{
-			"redirect": seal.MakeRedirectHandler,
+			"redirect": seal.RedirectHandler,
 		},
 	}
 

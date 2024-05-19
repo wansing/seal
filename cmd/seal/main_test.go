@@ -59,7 +59,7 @@ var config = seal.Config{
 		".md":   content.Commonmark,
 	},
 	Handlers: map[string]seal.HandlerGen{
-		"redirect": seal.MakeRedirectHandler,
+		"redirect": seal.RedirectHandler,
 	},
 }
 

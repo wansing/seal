@@ -140,7 +140,7 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 		dir.Handler, err = handlerGen(dir, handlerGenFilestem, handlerGenFilecontent)
 	} else {
 		if containsContent {
-			dir.Handler, err = MakeTemplateHandler(dir, "", nil)
+			dir.Handler, err = TemplateHandler(dir, "", nil)
 		}
 		// else no template handler because it would probably display duplicate content
 	}
