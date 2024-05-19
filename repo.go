@@ -54,10 +54,9 @@ func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.R
 			continue
 		}
 
-		// no subdir with that name found, but maybe a file
+		// no subdir with that name found, now try as a file
 		if r.Method == http.MethodGet && len(reqpath) == 1 {
-			http.FileServer(http.FS(repo.Fsys)).ServeHTTP(w, r) // only works with server repository at the moment
-			// http.ServeFileFS(w, r, dir.Fsys, reqpath[0]) // use this from go 1.22
+			http.ServeFileFS(w, r, dir.Fsys, reqpath[0])
 			return false
 		}
 
