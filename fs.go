@@ -12,15 +12,15 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-type Repository struct {
+type FS struct {
 	Fsys    fs.FS
 	RootDir string // for git reload
 
 	root *Dir // set by Reload
 }
 
-func MakeDirRepository(dir string) *Repository {
-	return &Repository{
+func DirFS(dir string) *FS {
+	return &FS{
 		Fsys:    os.DirFS(dir),
 		RootDir: dir,
 	}
@@ -29,8 +29,8 @@ func MakeDirRepository(dir string) *Repository {
 // Serve processes the given reqpath, calling the handler of each directory it passes by, until one handler returns false or the path is done.
 //
 // Serve always returns false. The return value exists for compatibility with type Handler.
-func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
-	dir := repo.root
+func (fs *FS) Serve(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
+	dir := fs.root
 	for {
 		if dir.Handler != nil {
 			cont := dir.Handler(reqpath, w, r)
@@ -62,7 +62,7 @@ func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.R
 	}
 }
 
-// GitReloadHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the repo root dir, then reloads the server.
+// GitReloadHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the fs root dir, then reloads the server.
 //
 // We can't distinguish between local commits (which should be kept) and upstream history rewrites (which can be dropped).
 // Thus it fails if there are local changes and refuses to run from an interactive terminal.

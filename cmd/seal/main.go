@@ -36,16 +36,16 @@ func main() {
 		Handlers: map[string]seal.HandlerGen{
 			"redirect": seal.RedirectHandler,
 		},
-		Repo: seal.MakeDirRepository("."),
+		FS: seal.DirFS("."),
 	}
 	if err := srv.Reload(); err != nil {
-		log.Fatalf("error loading root repo: %v", err)
+		log.Fatalf("error loading root fs: %v", err)
 	}
 
 	log.Printf("listening to %s", listen)
 	http.HandleFunc("/errors", srv.ErrorsHandler())
 	http.HandleFunc("/reload", srv.ReloadHandler(secret))
-	http.HandleFunc("/git-reload", seal.GitReloadHandler(secret, srv.Repo.RootDir, srv.Reload))
+	http.HandleFunc("/git-reload", seal.GitReloadHandler(secret, srv.FS.RootDir, srv.Reload))
 	http.Handle("/", srv)
 	http.ListenAndServe(listen, nil)
 }

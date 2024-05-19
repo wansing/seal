@@ -17,7 +17,7 @@ type Error struct {
 type Server struct {
 	Content  map[string]ContentFunc // key is file extension
 	Handlers map[string]HandlerGen  // key is file extension or full filename
-	Repo     *Repository
+	FS       *FS
 	Errs     []Error
 }
 
@@ -29,7 +29,7 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
-	srv.Repo.Serve(reqpath, w, r)
+	srv.FS.Serve(reqpath, w, r)
 }
 
 // ErrorsHandler returns a handler which sends srv.Errs in JSON.
@@ -46,11 +46,11 @@ func (srv *Server) Reload() error {
 	defer func() {
 		srv.Errs = errs
 	}()
-	return srv.ReloadRepo(srv.Repo, nil, &errs)
+	return srv.ReloadFS(srv.FS, nil, &errs)
 }
 
-// Reload updates repo.Root.
-func (srv *Server) ReloadRepo(repo *Repository, parent *Dir, errs *[]Error) error {
+// Reload updates fs.Root.
+func (srv *Server) ReloadFS(fs *FS, parent *Dir, errs *[]Error) error {
 	var parentTmpl *template.Template
 	var baseURLPath = "/"
 	if parent != nil {
@@ -58,11 +58,11 @@ func (srv *Server) ReloadRepo(repo *Repository, parent *Dir, errs *[]Error) erro
 		baseURLPath = parent.URLPath
 	}
 
-	dir, err := srv.Load(parentTmpl, repo.Fsys, baseURLPath, errs)
+	dir, err := srv.Load(parentTmpl, fs.Fsys, baseURLPath, errs)
 	if err != nil {
 		return err
 	}
-	repo.root = dir
+	fs.root = dir
 	return nil
 }
 

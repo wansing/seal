@@ -13,7 +13,7 @@ import (
 	"github.com/wansing/seal/content"
 )
 
-var testFS = fstest.MapFS{
+var rootMapFS = fstest.MapFS{
 	"favicon.ico": &fstest.MapFile{
 		Data: []byte("ICON"),
 	},
@@ -44,21 +44,21 @@ var testFS = fstest.MapFS{
 	"empty-dir": &fstest.MapFile{
 		Mode: fs.ModeDir,
 	},
-	"other/other-repo": &fstest.MapFile{},
+	"other/other-fs": &fstest.MapFile{},
 }
 
-var otherFS = fstest.MapFS{
+var otherMapFS = fstest.MapFS{
 	"main.md": &fstest.MapFile{
-		Data: []byte(`# Other repository`),
+		Data: []byte(`# Other filesystem`),
 	},
 }
 
-var repo = &seal.Repository{
-	Fsys: testFS,
+var rootFS = &seal.FS{
+	Fsys: rootMapFS,
 }
 
-var otherRepo = &seal.Repository{
-	Fsys: otherFS,
+var otherFS = &seal.FS{
+	Fsys: otherMapFS,
 }
 
 var srv = &seal.Server{
@@ -69,14 +69,14 @@ var srv = &seal.Server{
 	Handlers: map[string]seal.HandlerGen{
 		"redirect": seal.RedirectHandler,
 	},
-	Repo: repo,
+	FS: rootFS,
 }
 
 func init() {
-	srv.Handlers["other-repo"] = func(dir *seal.Dir, filestem string, filecontent []byte) (seal.Handler, error) {
+	srv.Handlers["other-fs"] = func(dir *seal.Dir, filestem string, filecontent []byte) (seal.Handler, error) {
 		var errs = []seal.Error{}
-		_ = srv.ReloadRepo(otherRepo, dir, &errs)
-		return otherRepo.Serve, nil
+		_ = srv.ReloadFS(otherFS, dir, &errs)
+		return otherFS.Serve, nil
 	}
 }
 
@@ -103,7 +103,7 @@ func TestSeal(t *testing.T) {
 		{input: "/redirect-relative-path", want: `<a href="/redirect-relative-path/path">See Other</a>.`},
 		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
 		{input: "/empty-dir", want: `404 page not found`},
-		{input: "/other", want: `<html><body><main><h1>Other repository</h1>
+		{input: "/other", want: `<html><body><main><h1>Other filesystem</h1>
 </main></body></html>`},
 	}
 
@@ -129,7 +129,7 @@ func TestSeal(t *testing.T) {
 
 func TestReload(t *testing.T) {
 
-	testFS["main.md"] = &fstest.MapFile{
+	rootMapFS["main.md"] = &fstest.MapFile{
 		Data: []byte(`# Reloaded`),
 	}
 
