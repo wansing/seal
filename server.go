@@ -49,7 +49,7 @@ func (srv *Server) Reload() error {
 	return srv.ReloadFS(srv.FS, nil, &errs)
 }
 
-// Reload updates fs.Root.
+// Reload updates fs.root.
 func (srv *Server) ReloadFS(fs *FS, parent *Dir, errs *[]Error) error {
 	var parentTmpl *template.Template
 	var baseURLPath = "/"
