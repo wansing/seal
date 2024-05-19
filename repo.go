@@ -3,7 +3,6 @@ package seal
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"io/fs"
 	"net/http"
 	"os"
@@ -14,16 +13,14 @@ import (
 )
 
 type Repository struct {
-	Conf    Config
 	Fsys    fs.FS
 	RootDir string // for git reload
 
 	root *Dir // set by Reload
 }
 
-func MakeDirRepository(config Config, dir string) *Repository {
+func MakeDirRepository(dir string) *Repository {
 	return &Repository{
-		Conf:    config,
 		Fsys:    os.DirFS(dir),
 		RootDir: dir,
 	}
@@ -63,23 +60,6 @@ func (repo *Repository) Serve(reqpath []string, w http.ResponseWriter, r *http.R
 		http.NotFound(w, r)
 		return false
 	}
-}
-
-// Reload updates repo.Root.
-func (repo *Repository) Reload(parent *Dir, errs *[]Error) error {
-	var parentTmpl *template.Template
-	var baseURLPath = "/"
-	if parent != nil {
-		parentTmpl = parent.Template
-		baseURLPath = parent.URLPath
-	}
-
-	dir, err := Load(repo.Conf, parentTmpl, repo.Fsys, baseURLPath, errs)
-	if err != nil {
-		return err
-	}
-	repo.root = dir
-	return nil
 }
 
 // GitReloadHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in the repo root dir, then reloads the server.

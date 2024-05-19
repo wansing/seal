@@ -26,7 +26,7 @@ func main() {
 		log.Printf("generated temporary reload secret: %s", secret)
 	}
 
-	config := seal.Config{
+	srv := &seal.Server{
 		Content: map[string]seal.ContentFunc{
 			".calendar-bs5": content.CalendarBS5{}.Parse,
 			".countdown":    content.Countdown,
@@ -36,12 +36,7 @@ func main() {
 		Handlers: map[string]seal.HandlerGen{
 			"redirect": seal.RedirectHandler,
 		},
-	}
-
-	rootRepo := seal.MakeDirRepository(config, ".")
-
-	srv := &seal.Server{
-		Repo: rootRepo,
+		Repo: seal.MakeDirRepository("."),
 	}
 	if err := srv.Reload(); err != nil {
 		log.Fatalf("error loading root repo: %v", err)
@@ -50,7 +45,7 @@ func main() {
 	log.Printf("listening to %s", listen)
 	http.HandleFunc("/errors", srv.ErrorsHandler())
 	http.HandleFunc("/reload", srv.ReloadHandler(secret))
-	http.HandleFunc("/git-reload-root", seal.GitReloadHandler(secret, rootRepo.RootDir, srv.Reload))
+	http.HandleFunc("/git-reload", seal.GitReloadHandler(secret, srv.Repo.RootDir, srv.Reload))
 	http.Handle("/", srv)
 	http.ListenAndServe(listen, nil)
 }

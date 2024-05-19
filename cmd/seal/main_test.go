@@ -53,7 +53,15 @@ var otherFS = fstest.MapFS{
 	},
 }
 
-var config = seal.Config{
+var repo = &seal.Repository{
+	Fsys: testFS,
+}
+
+var otherRepo = &seal.Repository{
+	Fsys: otherFS,
+}
+
+var srv = &seal.Server{
 	Content: map[string]seal.ContentFunc{
 		".html": content.Html,
 		".md":   content.Commonmark,
@@ -61,26 +69,13 @@ var config = seal.Config{
 	Handlers: map[string]seal.HandlerGen{
 		"redirect": seal.RedirectHandler,
 	},
-}
-
-var repo = &seal.Repository{
-	Conf: config,
-	Fsys: testFS,
-}
-
-var otherRepo = &seal.Repository{
-	Conf: config,
-	Fsys: otherFS,
-}
-
-var srv = &seal.Server{
 	Repo: repo,
 }
 
 func init() {
-	config.Handlers["other-repo"] = func(dir *seal.Dir, filestem string, filecontent []byte) (seal.Handler, error) {
+	srv.Handlers["other-repo"] = func(dir *seal.Dir, filestem string, filecontent []byte) (seal.Handler, error) {
 		var errs = []seal.Error{}
-		_ = otherRepo.Reload(dir, &errs)
+		_ = srv.ReloadRepo(otherRepo, dir, &errs)
 		return otherRepo.Serve, nil
 	}
 }

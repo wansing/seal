@@ -43,7 +43,7 @@ func (dir *Dir) String() string {
 }
 
 // Load creates a *Dir from the given fsys.
-func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath string, errs *[]Error) (*Dir, error) {
+func (srv *Server) Load(parentTmpl *template.Template, fsys fs.FS, urlpath string, errs *[]Error) (*Dir, error) {
 	if parentTmpl == nil {
 		parentTmpl = template.New("")
 	}
@@ -75,7 +75,7 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 		stem := strings.TrimSuffix(entry.Name(), ext)
 
 		// Handlers[filename]
-		if gen, ok := config.Handlers[entry.Name()]; ok {
+		if gen, ok := srv.Handlers[entry.Name()]; ok {
 			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
 				return nil, err
@@ -86,7 +86,7 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 		}
 
 		// Handlers[ext]
-		if gen, ok := config.Handlers[ext]; ok {
+		if gen, ok := srv.Handlers[ext]; ok {
 			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
 				return nil, err
@@ -98,7 +98,7 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 		}
 
 		// Content
-		if contentFunc, ok := config.Content[ext]; ok {
+		if contentFunc, ok := srv.Content[ext]; ok {
 			containsContent = true
 			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
@@ -123,7 +123,7 @@ func Load(config Config, parentTmpl *template.Template, fsys fs.FS, urlpath stri
 		if err != nil {
 			return nil, err
 		}
-		subdir, err := Load(config, dir.Template, subfsys, path.Join(urlpath, Slugify(entry.Name())), errs)
+		subdir, err := srv.Load(dir.Template, subfsys, path.Join(urlpath, Slugify(entry.Name())), errs)
 		if err != nil {
 			return nil, err
 		}

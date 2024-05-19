@@ -3,6 +3,7 @@ package seal
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strings"
 	"time"
@@ -14,8 +15,10 @@ type Error struct {
 }
 
 type Server struct {
-	Repo *Repository
-	Errs []Error
+	Content  map[string]ContentFunc // key is file extension
+	Handlers map[string]HandlerGen  // key is file extension or full filename
+	Repo     *Repository
+	Errs     []Error
 }
 
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -38,13 +41,28 @@ func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	}
 }
 
-// Reload calls srv.Repo.Reload and updates srv.Errs.
 func (srv *Server) Reload() error {
 	var errs = []Error{} // initialize it to get json "[]" instead of "null"
-	if err := srv.Repo.Reload(nil, &errs); err != nil {
+	defer func() {
+		srv.Errs = errs
+	}()
+	return srv.ReloadRepo(srv.Repo, nil, &errs)
+}
+
+// Reload updates repo.Root.
+func (srv *Server) ReloadRepo(repo *Repository, parent *Dir, errs *[]Error) error {
+	var parentTmpl *template.Template
+	var baseURLPath = "/"
+	if parent != nil {
+		parentTmpl = parent.Template
+		baseURLPath = parent.URLPath
+	}
+
+	dir, err := srv.Load(parentTmpl, repo.Fsys, baseURLPath, errs)
+	if err != nil {
 		return err
 	}
-	srv.Errs = errs
+	repo.root = dir
 	return nil
 }
 
