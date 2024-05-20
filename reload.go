@@ -3,7 +3,6 @@ package seal
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -12,57 +11,7 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-type FS struct {
-	Fsys   fs.FS
-	GitDir string // for git reload, optional
-
-	root *Dir // set by Reload
-}
-
-func DirFS(dir string) *FS {
-	return &FS{
-		Fsys:   os.DirFS(dir),
-		GitDir: dir,
-	}
-}
-
-// Serve processes the given reqpath, calling the handler of each directory it passes by, until one handler returns false or the path is done.
-//
-// Serve always returns false. The return value exists for compatibility with type Handler.
-func (fs *FS) Serve(reqpath []string, w http.ResponseWriter, r *http.Request) bool {
-	dir := fs.root
-	for {
-		if dir.Handler != nil {
-			cont := dir.Handler(reqpath, w, r)
-			if !cont {
-				return false
-			}
-		}
-
-		if len(reqpath) == 0 {
-			http.NotFound(w, r)
-			return false
-		}
-
-		next, ok := dir.Subdirs[reqpath[0]]
-		if ok {
-			reqpath = reqpath[1:]
-			dir = next
-			continue
-		}
-
-		// no subdir with that name found, now try as a file
-		if r.Method == http.MethodGet && len(reqpath) == 1 {
-			http.ServeFileFS(w, r, dir.Fsys, reqpath[0])
-			return false
-		}
-
-		http.NotFound(w, r)
-		return false
-	}
-}
-
-// GitReloadHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in osDir, then reloads the server.
+// GitReloadHandler returns a rate-limited handler which runs "git fetch" and "git reset --hard" in osDir, then calls reload.
 //
 // We can't distinguish between local commits (which should be kept) and upstream history rewrites (which can be dropped).
 // Thus it fails if there are local changes and refuses to run from an interactive terminal.
@@ -124,6 +73,38 @@ func GitReloadHandler(secret string, osDir string, reload func() error) http.Han
 			} else {
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte(fmt.Sprintf("git reload scheduled, last execution returned error: %v", err)))
+			}
+		}
+	}
+}
+
+// ReloadHandler returns a rate-limited handler which calls reload.
+func ReloadHandler(secret string, reload func() error) http.HandlerFunc {
+	limitedReload := Limit(time.Minute, 2, func() error {
+		return reload()
+	})
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("secret") != secret {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("unauthorized"))
+			return
+		}
+
+		start := time.Now()
+		if done, err := limitedReload(); done {
+			if err == nil {
+				w.Write([]byte(fmt.Sprintf("reload took %d milliseconds", time.Since(start).Milliseconds())))
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("reload failed: %v", err)))
+			}
+		} else {
+			if err == nil {
+				w.Write([]byte("reload scheduled"))
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("reload scheduled, last execution returned error: %v", err)))
 			}
 		}
 	}

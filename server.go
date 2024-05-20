@@ -2,11 +2,9 @@ package seal
 
 import (
 	"encoding/json"
-	"fmt"
-	"html/template"
+	"io/fs"
 	"net/http"
 	"strings"
-	"time"
 )
 
 type Error struct {
@@ -15,12 +13,15 @@ type Error struct {
 }
 
 type Server struct {
+	FS       fs.FS
 	Content  map[string]ContentFunc // key is file extension
 	Handlers map[string]HandlerGen  // key is file extension or full filename
-	FS       *FS
-	Errs     []Error
+
+	root *Dir
+	errs []Error
 }
 
+// ServeHTTP processes the request path, calling the handler of each directory it passes by, until one handler returns false or the path is done.
 func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// remove trailing slash in GET requests, except for root
 	if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/") && r.URL.Path != "/" {
@@ -28,72 +29,58 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dir := srv.root
 	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
-	srv.FS.Serve(reqpath, w, r)
+	for {
+		if dir.Handler != nil {
+			cont := dir.Handler(reqpath, w, r)
+			if !cont {
+				return
+			}
+		}
+
+		if len(reqpath) == 0 {
+			http.NotFound(w, r)
+			return
+		}
+
+		next, ok := dir.Subdirs[reqpath[0]]
+		if ok {
+			reqpath = reqpath[1:]
+			dir = next
+			continue
+		}
+
+		// no subdir with that name found, now try as a file
+		if r.Method == http.MethodGet && len(reqpath) == 1 {
+			http.ServeFileFS(w, r, dir.Fsys, reqpath[0])
+			return
+		}
+
+		http.NotFound(w, r)
+		return
+	}
 }
 
-// ErrorsHandler returns a handler which sends srv.Errs in JSON.
+// ErrorsHandler returns a handler which sends srv.errs in JSON.
 func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "\t")
-		enc.Encode(srv.Errs)
+		enc.Encode(srv.errs)
 	}
 }
 
 func (srv *Server) Reload() error {
 	var errs = []Error{} // initialize it to get json "[]" instead of "null"
 	defer func() {
-		srv.Errs = errs
+		srv.errs = errs
 	}()
-	return srv.ReloadFS(srv.FS, nil, &errs)
-}
 
-// Reload updates fs.root.
-func (srv *Server) ReloadFS(fs *FS, parent *Dir, errs *[]Error) error {
-	var parentTmpl *template.Template
-	var baseURLPath = "/"
-	if parent != nil {
-		parentTmpl = parent.Template
-		baseURLPath = parent.URLPath
-	}
-
-	dir, err := srv.Load(parentTmpl, fs.Fsys, baseURLPath, errs)
+	dir, err := srv.Load(nil, srv.FS, "/", &errs)
 	if err != nil {
 		return err
 	}
-	fs.root = dir
+	srv.root = dir
 	return nil
-}
-
-// ReloadHandler returns a rate-limited handler which calls srv.Reload.
-func (srv *Server) ReloadHandler(secret string) http.HandlerFunc {
-	limitedReload := Limit(time.Minute, 2, func() error {
-		return srv.Reload()
-	})
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("secret") != secret {
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("unauthorized"))
-			return
-		}
-
-		start := time.Now()
-		if done, err := limitedReload(); done {
-			if err == nil {
-				w.Write([]byte(fmt.Sprintf("reload took %d milliseconds", time.Since(start).Milliseconds())))
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(fmt.Sprintf("reload failed: %v", err)))
-			}
-		} else {
-			if err == nil {
-				w.Write([]byte("reload scheduled"))
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(fmt.Sprintf("reload scheduled, last execution returned error: %v", err)))
-			}
-		}
-	}
 }

@@ -27,6 +27,7 @@ func main() {
 	}
 
 	srv := &seal.Server{
+		FS: os.DirFS("."),
 		Content: map[string]seal.ContentFunc{
 			".calendar-bs5": content.CalendarBS5{}.Parse,
 			".countdown":    content.Countdown,
@@ -36,7 +37,6 @@ func main() {
 		Handlers: map[string]seal.HandlerGen{
 			"redirect": seal.RedirectHandler,
 		},
-		FS: seal.DirFS("."),
 	}
 	if err := srv.Reload(); err != nil {
 		log.Fatalf("error loading root fs: %v", err)
@@ -44,8 +44,8 @@ func main() {
 
 	log.Printf("listening to %s", listen)
 	http.HandleFunc("/errors", srv.ErrorsHandler())
-	http.HandleFunc("/reload", srv.ReloadHandler(secret))
-	http.HandleFunc("/git-reload", seal.GitReloadHandler(secret, srv.FS.GitDir, srv.Reload))
+	http.HandleFunc("/reload", seal.ReloadHandler(secret, srv.Reload))
+	http.HandleFunc("/git-reload", seal.GitReloadHandler(secret, ".", srv.Reload))
 	http.Handle("/", srv)
 	http.ListenAndServe(listen, nil)
 }

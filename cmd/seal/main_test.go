@@ -13,7 +13,25 @@ import (
 	"github.com/wansing/seal/content"
 )
 
-var rootMapFS = fstest.MapFS{
+// not production-ready
+type mountFS struct {
+	Base       fs.FS
+	Mount      fs.FS
+	Mountpoint string
+}
+
+func (mfs mountFS) Open(name string) (fs.File, error) {
+	if mountpath, ok := strings.CutPrefix(name, mfs.Mountpoint); ok {
+		mountpath = strings.Trim(mountpath, "/")
+		if mountpath == "" {
+			mountpath = "."
+		}
+		return mfs.Mount.Open(mountpath)
+	}
+	return mfs.Base.Open(name)
+}
+
+var baseFS = fstest.MapFS{
 	"favicon.ico": &fstest.MapFile{
 		Data: []byte("ICON"),
 	},
@@ -44,24 +62,26 @@ var rootMapFS = fstest.MapFS{
 	"empty-dir": &fstest.MapFile{
 		Mode: fs.ModeDir,
 	},
-	"other/other-fs": &fstest.MapFile{},
+	// mountpoint, required
+	"other": &fstest.MapFile{
+		Mode: fs.ModeDir,
+	},
 }
 
-var otherMapFS = fstest.MapFS{
+var mountedFS = fstest.MapFS{
 	"main.md": &fstest.MapFile{
 		Data: []byte(`# Other filesystem`),
 	},
 }
 
-var rootFS = &seal.FS{
-	Fsys: rootMapFS,
-}
-
-var otherFS = &seal.FS{
-	Fsys: otherMapFS,
+var testFS = mountFS{
+	Base:       baseFS,
+	Mount:      mountedFS,
+	Mountpoint: "other", // fs.ValidPath: "Paths must not start or end with a slash"
 }
 
 var srv = &seal.Server{
+	FS: testFS,
 	Content: map[string]seal.ContentFunc{
 		".html": content.Html,
 		".md":   content.Commonmark,
@@ -69,15 +89,6 @@ var srv = &seal.Server{
 	Handlers: map[string]seal.HandlerGen{
 		"redirect": seal.RedirectHandler,
 	},
-	FS: rootFS,
-}
-
-func init() {
-	srv.Handlers["other-fs"] = func(dir *seal.Dir, filestem string, filecontent []byte) (seal.Handler, error) {
-		var errs = []seal.Error{}
-		_ = srv.ReloadFS(otherFS, dir, &errs)
-		return otherFS.Serve, nil
-	}
 }
 
 func TestSeal(t *testing.T) {
@@ -129,7 +140,7 @@ func TestSeal(t *testing.T) {
 
 func TestReload(t *testing.T) {
 
-	rootMapFS["main.md"] = &fstest.MapFile{
+	baseFS["main.md"] = &fstest.MapFile{
 		Data: []byte(`# Reloaded`),
 	}
 
