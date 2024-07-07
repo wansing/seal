@@ -3,7 +3,6 @@ package content
 import (
 	"html/template"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -13,16 +12,10 @@ import (
 )
 
 type CalendarBS5 struct {
-	Anchor string      // for prev, next button link, default: filename
 	Config ical.Config // default url: file content
 }
 
 func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte) error {
-	var anchor = cal.Anchor
-	if anchor == "" {
-		anchor = filepath.Base(dir.URLPath)
-	}
-
 	var config = cal.Config
 	if config == (ical.Config{}) {
 		config = ical.Config{
@@ -34,7 +27,16 @@ func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte)
 	}
 
 	_, err := dir.Template.New(filestem).Funcs(template.FuncMap{
-		"CalendarBS5": func(r *http.Request) (*calendar.Month, error) {
+		"Link": func(r *http.Request, month calendar.Month) string {
+			var url = *r.URL // copy
+			link := url.Query()
+			link.Set("year", strconv.Itoa(month.Year))
+			link.Set("month", strconv.Itoa(int(month.Month)))
+			url.RawQuery = link.Encode()
+			url.Fragment = filestem // anchor
+			return url.String()
+		},
+		"Month": func(r *http.Request) (*calendar.Month, error) {
 			year, _ := strconv.Atoi(r.URL.Query().Get("year"))
 			month, _ := strconv.Atoi(r.URL.Query().Get("month"))
 			events, err := feed.Get(time.Local)
@@ -42,15 +44,6 @@ func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte)
 				return nil, err
 			}
 			return calendar.MakeMonth(events, year, month)
-		},
-		"Link": func(r *http.Request, month calendar.Month) string {
-			var url = *r.URL // copy
-			link := url.Query()
-			link.Set("year", strconv.Itoa(month.Year))
-			link.Set("month", strconv.Itoa(int(month.Month)))
-			url.RawQuery = link.Encode()
-			url.Fragment = anchor
-			return url.String()
 		},
 		"MonthName": func(month time.Month) string {
 			switch month {
@@ -83,7 +76,7 @@ func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte)
 			}
 		},
 	}).Parse(`
-		{{with CalendarBS5 .Request}}
+		{{with Month .Request}}
 			<div>
 				<div class="p-2 d-flex justify-content-center align-items-center">
 					<a class="btn btn-success" href="{{Link $.Request .Prev}}">&#9668;</a>
