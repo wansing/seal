@@ -43,7 +43,7 @@ func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte)
 			if err != nil {
 				return nil, err
 			}
-			return calendar.MakeMonth(events, year, month)
+			return calendar.MakeMonth(events, year, month), nil
 		},
 		"MonthName": func(month time.Month) string {
 			switch month {

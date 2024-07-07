@@ -28,7 +28,7 @@ func (month Month) Prev() Month {
 	}
 }
 
-func MakeMonth(events []ical.Event, year, month int) (*Month, error) {
+func MakeMonth(events []ical.Event, year, month int) *Month {
 	// check arguments
 	if year <= 0 {
 		year = time.Now().Year()
@@ -74,7 +74,7 @@ func MakeMonth(events []ical.Event, year, month int) (*Month, error) {
 		Year:  year,
 		Month: time.Month(month),
 		Weeks: weeks,
-	}, nil
+	}
 }
 
 type Week struct {
