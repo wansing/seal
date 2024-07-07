@@ -15,6 +15,11 @@ type CalendarBS5 struct {
 	Config ical.Config // default url: file content
 }
 
+type monthView struct {
+	calendar.Month
+	Error error
+}
+
 func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte) error {
 	var config = cal.Config
 	if config == (ical.Config{}) {
@@ -36,14 +41,14 @@ func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte)
 			url.Fragment = filestem // anchor
 			return url.String()
 		},
-		"Month": func(r *http.Request) (*calendar.Month, error) {
+		"Month": func(r *http.Request) monthView {
 			year, _ := strconv.Atoi(r.URL.Query().Get("year"))
 			month, _ := strconv.Atoi(r.URL.Query().Get("month"))
 			events, err := feed.Get(time.Local)
-			if err != nil {
-				return nil, err
-			}
-			return calendar.MakeMonth(events, year, month), nil
+			return monthView{
+				Month: calendar.MakeMonth(events, year, month),
+				Error: err,
+			} // don't return err, don't interrupt template execution
 		},
 		"MonthName": func(month time.Month) string {
 			switch month {
@@ -78,9 +83,12 @@ func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte)
 	}).Parse(`
 		{{with Month .Request}}
 			<div>
+				{{with .Error}}
+					<div class="alert alert-danger text-center">Error getting calendar events: {{.}}</div>
+				{{end}}
 				<div class="p-2 d-flex justify-content-center align-items-center">
 					<a class="btn btn-success" href="{{Link $.Request .Prev}}">&#9668;</a>
-					<strong class="h3 mx-3 my-0">{{MonthName .Month}} {{.Year}}</strong>
+					<strong class="h3 mx-3 my-0">{{MonthName .Month.Month}} {{.Year}}</strong>
 					<a class="btn btn-success" href="{{Link $.Request .Next}}">&#9658;</a>
 				</div>
 				<div style="display: grid; grid-template-columns: repeat(7, 1fr);">
