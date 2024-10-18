@@ -16,7 +16,7 @@ import (
 // We can't distinguish between local commits (which should be kept) and upstream history rewrites (which can be dropped).
 // Thus it fails if there are local changes and refuses to run from an interactive terminal.
 // You should know about "git reflog".
-func GitReloadHandler(secret string, osDir string, reload func() error) http.HandlerFunc {
+func GitReloadHandler(secret string, osDir string, reload func()) http.HandlerFunc {
 	if osDir == "" {
 		return http.NotFound
 	}
@@ -49,7 +49,8 @@ func GitReloadHandler(secret string, osDir string, reload func() error) http.Han
 			return fmt.Errorf("error running git reset: %v", err)
 		}
 
-		return reload()
+		reload()
+		return nil
 	})
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -79,9 +80,10 @@ func GitReloadHandler(secret string, osDir string, reload func() error) http.Han
 }
 
 // ReloadHandler returns a rate-limited handler which calls reload.
-func ReloadHandler(secret string, reload func() error) http.HandlerFunc {
+func ReloadHandler(secret string, reload func()) http.HandlerFunc {
 	limitedReload := Limit(time.Minute, 2, func() error {
-		return reload()
+		reload()
+		return nil
 	})
 
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -92,9 +92,7 @@ var srv = &seal.Server{
 }
 
 func TestSeal(t *testing.T) {
-	if err := srv.Reload(); err != nil {
-		t.Fatal(err)
-	}
+	srv.Reload()
 	go http.ListenAndServe("127.0.0.1:8081", srv)
 
 	time.Sleep(100 * time.Millisecond)

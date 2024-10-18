@@ -65,22 +65,15 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ErrorsHandler returns a handler which sends srv.errs in JSON.
 func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if srv.errs == nil {
+			srv.errs = []Error{} // initialize it to get json "[]" instead of "null"
+		}
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "\t")
 		enc.Encode(srv.errs)
 	}
 }
 
-func (srv *Server) Reload() error {
-	var errs = []Error{} // initialize it to get json "[]" instead of "null"
-	defer func() {
-		srv.errs = errs
-	}()
-
-	dir, err := srv.Load(nil, srv.FS, "/", &errs)
-	if err != nil {
-		return err
-	}
-	srv.root = dir
-	return nil
+func (srv *Server) Reload() {
+	srv.root, srv.errs = srv.Load(nil, srv.FS, "/")
 }

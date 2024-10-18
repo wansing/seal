@@ -38,9 +38,8 @@ func main() {
 			"redirect": seal.RedirectHandler,
 		},
 	}
-	if err := srv.Reload(); err != nil {
-		log.Fatalf("error loading root fs: %v", err)
-	}
+
+	srv.Reload()
 
 	log.Printf("listening to %s", listen)
 	http.HandleFunc("/errors", srv.ErrorsHandler())

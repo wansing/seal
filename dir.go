@@ -43,7 +43,7 @@ func (dir *Dir) String() string {
 }
 
 // Load creates a *Dir from the given fsys.
-func (srv *Server) Load(parentTmpl *template.Template, fsys fs.FS, urlpath string, errs *[]Error) (*Dir, error) {
+func (srv *Server) Load(parentTmpl *template.Template, fsys fs.FS, urlpath string) (*Dir, []Error) {
 	if parentTmpl == nil {
 		parentTmpl = template.New("")
 	}
@@ -58,8 +58,15 @@ func (srv *Server) Load(parentTmpl *template.Template, fsys fs.FS, urlpath strin
 
 	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
-		return nil, err
+		return nil, []Error{
+			Error{
+				URLPath: urlpath,
+				Message: err.Error(),
+			},
+		}
 	}
+
+	var errs []Error
 
 	// files
 	var containsContent = false
@@ -78,7 +85,11 @@ func (srv *Server) Load(parentTmpl *template.Template, fsys fs.FS, urlpath strin
 		if gen, ok := srv.Handlers[entry.Name()]; ok {
 			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
-				return nil, err
+				errs = append(errs, Error{
+					URLPath: urlpath + "/" + entry.Name(),
+					Message: err.Error(),
+				})
+				continue
 			}
 			handlerGen = gen
 			handlerGenFilecontent = filecontent
@@ -89,7 +100,11 @@ func (srv *Server) Load(parentTmpl *template.Template, fsys fs.FS, urlpath strin
 		if gen, ok := srv.Handlers[ext]; ok {
 			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
-				return nil, err
+				errs = append(errs, Error{
+					URLPath: urlpath + "/" + entry.Name(),
+					Message: err.Error(),
+				})
+				continue
 			}
 			handlerGen = gen
 			handlerGenFilestem = stem
@@ -102,11 +117,18 @@ func (srv *Server) Load(parentTmpl *template.Template, fsys fs.FS, urlpath strin
 			containsContent = true
 			filecontent, err := fs.ReadFile(fsys, entry.Name())
 			if err != nil {
-				return nil, err
+				errs = append(errs, Error{
+					URLPath: urlpath + "/" + entry.Name(),
+					Message: err.Error(),
+				})
+				continue
 			}
 			err = contentFunc(dir, stem, filecontent)
 			if err != nil {
-				*errs = append(*errs, Error{urlpath, err.Error()})
+				errs = append(errs, Error{
+					URLPath: urlpath,
+					Message: err.Error(),
+				})
 			}
 			continue
 		}
@@ -121,13 +143,16 @@ func (srv *Server) Load(parentTmpl *template.Template, fsys fs.FS, urlpath strin
 
 		subfsys, err := fs.Sub(fsys, entry.Name())
 		if err != nil {
-			return nil, err
+			errs = append(errs, Error{
+				URLPath: urlpath + "/" + entry.Name(),
+				Message: err.Error(),
+			})
+			continue
 		}
-		subdir, err := srv.Load(dir.Template, subfsys, path.Join(urlpath, Slugify(entry.Name())), errs)
-		if err != nil {
-			return nil, err
-		}
+
+		subdir, subErrs := srv.Load(dir.Template, subfsys, path.Join(urlpath, Slugify(entry.Name())))
 		dir.Subdirs[entry.Name()] = subdir
+		errs = append(errs, subErrs...)
 	}
 
 	// make dir.Template.Execute work without specifying a template name
@@ -145,10 +170,13 @@ func (srv *Server) Load(parentTmpl *template.Template, fsys fs.FS, urlpath strin
 		// else no template handler because it would probably display duplicate content
 	}
 	if err != nil {
-		*errs = append(*errs, Error{urlpath, err.Error()})
+		errs = append(errs, Error{
+			URLPath: urlpath,
+			Message: err.Error(),
+		})
 	}
 
-	return dir, nil
+	return dir, errs
 }
 
 // Slugify returns a modified version of the given string with [a-zA-Z0-9] retained and a dash in each gap.
