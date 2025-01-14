@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/wansing/go-ical-cache"
 	"github.com/wansing/seal"
 	"github.com/wansing/seal/content/calendar"
-	"github.com/wansing/shiftpad/ical"
 )
 
 type CalendarBS5 struct {
-	Config ical.Config // default url: file content
+	Config icalcache.Config // default url: file content
 }
 
 type monthView struct {
@@ -22,12 +22,12 @@ type monthView struct {
 
 func (cal CalendarBS5) Parse(dir *seal.Dir, filestem string, filecontent []byte) error {
 	var config = cal.Config
-	if config == (ical.Config{}) {
-		config = ical.Config{
+	if config == (icalcache.Config{}) {
+		config = icalcache.Config{
 			URL: string(filecontent),
 		}
 	}
-	feed := &ical.FeedCache{
+	feed := &icalcache.Cache{
 		Config: config,
 	}
 

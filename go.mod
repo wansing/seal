@@ -1,11 +1,11 @@
 module github.com/wansing/seal
 
-go 1.22
+go 1.23.4
 
 require (
 	github.com/icza/gox v0.0.0-20230330130131-23e1aaac139e
 	github.com/mattn/go-isatty v0.0.19
-	github.com/wansing/shiftpad v0.5.2
+	github.com/wansing/go-ical-cache v0.0.0-20250107090723-c5928d9c5ade
 	gitlab.com/golang-commonmark/markdown v0.0.0-20211110145824-bf3e522c626a
 )
 

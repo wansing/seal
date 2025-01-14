@@ -8,8 +8,8 @@ github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/teambition/rrule-go v1.8.2 h1:lIjpjvWTj9fFUZCmuoVDrKVOtdiyzbzc93qTmRVe/J8=
 github.com/teambition/rrule-go v1.8.2/go.mod h1:Ieq5AbrKGciP1V//Wq8ktsTXwSwJHDD5mD/wLBGl3p4=
-github.com/wansing/shiftpad v0.5.2 h1:7UWw96BbKghG23yQKr44z8hvsKSVJusoWE6RET6fZsE=
-github.com/wansing/shiftpad v0.5.2/go.mod h1:dyPtrQXOb2zpANAp6J0QpG+Ln23/Rx2Vkl1iqRWj82Y=
+github.com/wansing/go-ical-cache v0.0.0-20250107090723-c5928d9c5ade h1:ZiRbdnwErbUT+jm4a0Thp8seQxB7NnAexnJZrZsfgV0=
+github.com/wansing/go-ical-cache v0.0.0-20250107090723-c5928d9c5ade/go.mod h1:MuAu17bcI92sLab6pFpEvULBDXzR6DOQ6KdhaZ5koXs=
 gitlab.com/golang-commonmark/html v0.0.0-20191124015941-a22733972181 h1:K+bMSIx9A7mLES1rtG+qKduLIXq40DAzYHtb0XuCukA=
 gitlab.com/golang-commonmark/html v0.0.0-20191124015941-a22733972181/go.mod h1:dzYhVIwWCtzPAa4QP98wfB9+mzt33MSmM8wsKiMi2ow=
 gitlab.com/golang-commonmark/linkify v0.0.0-20191026162114-a0c2df6c8f82 h1:oYrL81N608MLZhma3ruL8qTM4xcpYECGut8KSxRY59g=

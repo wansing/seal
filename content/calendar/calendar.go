@@ -3,7 +3,7 @@ package calendar
 import (
 	"time"
 
-	"github.com/wansing/shiftpad/ical"
+	"github.com/wansing/go-ical-cache"
 )
 
 type Month struct {
@@ -28,7 +28,7 @@ func (month Month) Prev() Month {
 	}
 }
 
-func MakeMonth(events []ical.Event, year, month int) Month {
+func MakeMonth(events []icalcache.Event, year, month int) Month {
 	// check arguments
 	if year <= 0 {
 		year = time.Now().Year()
@@ -80,22 +80,22 @@ func MakeMonth(events []ical.Event, year, month int) Month {
 type Week struct {
 	Number int
 	Days   [7]Day
-	Events []ical.Event
+	Events []icalcache.Event
 }
 
-func (week Week) Begin(event ical.Event) time.Time {
+func (week Week) Begin(event icalcache.Event) time.Time {
 	return max(week.Days[0].Begin, event.Start)
 }
 
-func (week Week) End(event ical.Event) time.Time {
+func (week Week) End(event icalcache.Event) time.Time {
 	return min(week.Days[6].End(), event.End)
 }
 
-func (week Week) NumInWeekBegin(event ical.Event) int {
+func (week Week) NumInWeekBegin(event icalcache.Event) int {
 	return numInWeek(week.Begin(event))
 }
 
-func (week Week) NumInWeekEnd(event ical.Event) int {
+func (week Week) NumInWeekEnd(event icalcache.Event) int {
 	end := week.End(event)
 	// end time is exclusive, subtract a second if it's midnight
 	if end.Hour() == 0 && end.Minute() == 0 && end.Second() == 0 && end.Nanosecond() == 0 {
@@ -121,8 +121,8 @@ func (day Day) NumInWeek() int {
 	return numInWeek(day.Begin)
 }
 
-func filterEvents(events []ical.Event, begin, end time.Time) []ical.Event {
-	var result []ical.Event
+func filterEvents(events []icalcache.Event, begin, end time.Time) []icalcache.Event {
+	var result []icalcache.Event
 	for _, event := range events {
 		if overlaps(event.Start, event.End, begin, end) {
 			result = append(result, event)
