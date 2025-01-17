@@ -29,8 +29,15 @@ func (srv *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dir := srv.root
+	// split request path, rewrite / to /index internally
 	reqpath := strings.FieldsFunc(r.URL.Path, func(r rune) bool { return r == '/' })
+	if len(reqpath) == 0 {
+		if _, ok := srv.root.Subdirs["index"]; ok {
+			reqpath = []string{"index"}
+		}
+	}
+
+	dir := srv.root
 	for {
 		if dir.Handler != nil {
 			cont := dir.Handler(reqpath, w, r)
