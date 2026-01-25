@@ -12,7 +12,9 @@ import (
 )
 
 type countdownData struct {
-	End     time.Time
+	End time.Time
+
+	// initial values (work without javascript)
 	Years   int
 	Months  int
 	Days    int
@@ -21,7 +23,7 @@ type countdownData struct {
 	Seconds int
 }
 
-func Countdown(dir *seal.Dir, filestem string, filecontent []byte) error {
+func Countdown(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
 	isoEnd, tmplHtml, _ := strings.Cut(string(filecontent), "\n")
 
 	isoEnd = strings.TrimSpace(isoEnd)
@@ -44,8 +46,10 @@ func Countdown(dir *seal.Dir, filestem string, filecontent []byte) error {
 			<span id="seconds">{{$seconds}}</span> seconds`
 	}
 
-	_, err = dir.Template.New(filestem).Funcs(template.FuncMap{
-		"Countdown": func() countdownData {
+	dataFuncName := seal.TemplateName(urlpath, fileroot)
+
+	_, err = t.Funcs(template.FuncMap{
+		dataFuncName: func() countdownData {
 			years, months, days, hours, minutes, seconds := timex.Diff(time.Now(), end) // respects leap years
 			return countdownData{
 				End:     end,
@@ -58,7 +62,7 @@ func Countdown(dir *seal.Dir, filestem string, filecontent []byte) error {
 			}
 		},
 	}).Parse(`
-		{{$data := Countdown}}
+		{{$data := ` + dataFuncName + `}}
 
 		<script type="text/javascript">
 			function updateCountdown() {

@@ -47,15 +47,6 @@ var baseFS = fstest.MapFS{
 	"site/subsite/site.md": &fstest.MapFile{
 		Data: []byte(`## Subsite`),
 	},
-	"redirect-absolute-url/redirect": &fstest.MapFile{
-		Data: []byte("https://example.com"),
-	},
-	"redirect-absolute-path/redirect": &fstest.MapFile{
-		Data: []byte("/path"),
-	},
-	"redirect-relative-path/redirect": &fstest.MapFile{
-		Data: []byte("path"),
-	},
 	"nested-definitions/foo.html": &fstest.MapFile{
 		Data: []byte(`This is ignored. {{define "main"}}This is main.{{end}}`),
 	},
@@ -86,9 +77,6 @@ var srv = &seal.Server{
 		".html": content.Html,
 		".md":   content.Commonmark,
 	},
-	Handlers: map[string]seal.HandlerGen{
-		"redirect": seal.RedirectHandler,
-	},
 }
 
 func TestSeal(t *testing.T) {
@@ -107,9 +95,6 @@ func TestSeal(t *testing.T) {
 		{input: "/site", want: `<html><body><main><h1><a href="/site">Site</a></h1></main></body></html>`},
 		{input: "/site/subsite", want: `<html><body><main><h1><a href="/site">Site</a><h2>Subsite</h2>
 </h1></main></body></html>`},
-		{input: "/redirect-absolute-url", want: `<a href="https://example.com">See Other</a>.`},
-		{input: "/redirect-absolute-path", want: `<a href="/path">See Other</a>.`},
-		{input: "/redirect-relative-path", want: `<a href="/redirect-relative-path/path">See Other</a>.`},
 		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
 		{input: "/empty-dir", want: `404 page not found`},
 		{input: "/other", want: `<html><body><main><h1>Other filesystem</h1>

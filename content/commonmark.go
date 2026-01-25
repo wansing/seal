@@ -1,9 +1,9 @@
 package content
 
 import (
+	"html/template"
 	"regexp"
 
-	"github.com/wansing/seal"
 	"gitlab.com/golang-commonmark/markdown"
 )
 
@@ -12,9 +12,8 @@ var commonmark = markdown.New(markdown.HTML(true), markdown.Linkify(true), markd
 var templateCmd = regexp.MustCompile(`\{([a-z-]{1,32})\}`)
 
 // Commonmark parses the filecontent as CommonMark Markdown and calls Html on the result.
-// Use {name} to execute a template.
-func Commonmark(dir *seal.Dir, filestem string, filecontent []byte) error {
-	s := commonmark.RenderToString(filecontent)
-	s = templateCmd.ReplaceAllString(s, `{{template "$1" .}}`)
-	return Html(dir, filestem, []byte(s))
+func Commonmark(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
+	htmlcontent := commonmark.RenderToString(filecontent)
+	htmlcontent = templateCmd.ReplaceAllString(htmlcontent, `{{template "$1" .}}`)
+	return Html(t, urlpath, fileroot, []byte(htmlcontent))
 }
