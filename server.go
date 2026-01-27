@@ -100,11 +100,13 @@ func (srv *Server) Load(parentTmpl *template.Template, fspath string, urlpath st
 		if err != nil {
 			srv.log(err, urlpath)
 		}
-		pattern := urlpath // without trailing slash
-		if pattern == "/" {
-			pattern = "/{$}"
+
+		if urlpath == "/" {
+			srv.ServeMux.HandleFunc("GET /{$}", h)
+		} else {
+			srv.ServeMux.HandleFunc("GET "+urlpath, h) // urlpath is without trailing slash
+			srv.ServeMux.HandleFunc("GET "+urlpath+".html", redirectHTMLHandler)
 		}
-		srv.ServeMux.HandleFunc("GET "+pattern, h)
 	}
 
 	// subdirs
@@ -158,6 +160,14 @@ type TemplateData struct {
 // internalServerError replies to the request with an HTTP 500 internal server error.
 func internalServerError(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "500 internal server error", http.StatusInternalServerError)
+}
+
+func redirectHTMLHandler(w http.ResponseWriter, r *http.Request) {
+	if p, ok := strings.CutSuffix(r.URL.Path, ".html"); ok {
+		http.Redirect(w, r, p, http.StatusSeeOther)
+	} else {
+		http.NotFound(w, r)
+	}
 }
 
 func templateHandler(tmpl *template.Template, urlpath string) (http.HandlerFunc, error) {
