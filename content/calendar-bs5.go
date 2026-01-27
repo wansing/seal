@@ -85,7 +85,6 @@ func (cal CalendarBS5) Make(t *template.Template, urlpath, fileroot string, file
 	}
 
 	dataFuncName := seal.TemplateName(urlpath, fileroot)
-
 	_, err := t.Funcs(template.FuncMap{
 		dataFuncName: func() calendarData {
 			return calendarData{

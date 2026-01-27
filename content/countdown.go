@@ -47,7 +47,6 @@ func Countdown(t *template.Template, urlpath, fileroot string, filecontent []byt
 	}
 
 	dataFuncName := seal.TemplateName(urlpath, fileroot)
-
 	_, err = t.Funcs(template.FuncMap{
 		dataFuncName: func() countdownData {
 			years, months, days, hours, minutes, seconds := timex.Diff(time.Now(), end) // respects leap years

@@ -35,10 +35,10 @@ type Server struct {
 	files map[string]string // urlpath => fspath
 }
 
-func (srv *Server) log(err error, elems ...string) {
-	log.Printf("%s: %v", path.Join(elems...), err)
+func (srv *Server) log(err error, urlpath ...string) {
+	log.Printf("%s: %v", path.Join(urlpath...), err)
 	srv.errs = append(srv.errs, Error{
-		URLPath: path.Join(elems...),
+		URLPath: path.Join(urlpath...),
 		Err:     err,
 	})
 }
