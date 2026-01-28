@@ -56,7 +56,7 @@ func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	}
 }
 
-func (srv *Server) Load(parentTmpl *template.Template, fspath string, urlpath string) {
+func (srv *Server) LoadDir(parentTmpl *template.Template, fspath string, urlpath string) {
 	var tmpl, _ = parentTmpl.Clone()
 	var hasContent = false
 
@@ -118,7 +118,7 @@ func (srv *Server) Load(parentTmpl *template.Template, fspath string, urlpath st
 		case strings.HasPrefix(entry.Name(), "."):
 			continue // skip hidden dirs
 		case ext == "":
-			srv.Load(
+			srv.LoadDir(
 				tmpl,
 				path.Join(fspath, entry.Name()),
 				path.Join(urlpath, Slug(entry.Name())),
@@ -142,7 +142,7 @@ func (srv *Server) Reload() {
 	srv.errs = srv.errs[:0]
 	srv.files = make(map[string]string)
 	srv.ServeMux = http.NewServeMux()
-	srv.Load(template.New(""), ".", "/")
+	srv.LoadDir(template.New(""), ".", "/")
 	srv.ServeMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if fspath, ok := srv.files[r.URL.Path]; ok {
 			http.ServeFileFS(w, r, srv.FS, fspath)
