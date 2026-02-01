@@ -4,16 +4,16 @@ import "sync"
 
 // A Broker implements local publish/subscribe.
 type Broker struct {
-	pub   map[string]any              // key: urlpath
-	sub   map[string][]func(data any) // key: urlpath
-	lock  sync.Mutex
-	ready bool
+	retain map[string]any              // collects data until Ready() is called
+	sub    map[string][]func(data any) // key: urlpath
+	lock   sync.Mutex
+	ready  bool
 }
 
 func NewBroker() *Broker {
 	return &Broker{
-		pub: make(map[string]any),
-		sub: make(map[string][]func(data any)),
+		retain: make(map[string]any),
+		sub:    make(map[string][]func(data any)),
 	}
 }
 
@@ -21,11 +21,12 @@ func (b *Broker) Publish(urlpath string, data any) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	b.pub[urlpath] = data
 	if b.ready {
 		for _, fn := range b.sub[urlpath] {
 			fn(data)
 		}
+	} else {
+		b.retain[urlpath] = data
 	}
 }
 
@@ -48,9 +49,10 @@ func (b *Broker) Ready() {
 
 	b.ready = true
 	for urlpath, fns := range b.sub {
-		data := b.pub[urlpath]
+		data := b.retain[urlpath]
 		for _, fn := range fns {
 			fn(data)
 		}
 	}
+	clear(b.retain)
 }
