@@ -15,7 +15,7 @@ import (
 // A ContentFunc populates the template t.
 // The urlpath can be used to make relative links absolute.
 // The fileroot is useful to distinguish between multiple instances of this content on the same page.
-type ContentFunc func(t *template.Template, urlpath, fileroot string, filecontent []byte) error
+type ContentFunc func(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *Broker) error
 
 type Error struct {
 	URLPath string `json:"urlpath"`
@@ -23,7 +23,7 @@ type Error struct {
 }
 
 // handler must handle full paths (including urlpath prefix)
-type HandlerGen func(fsys fs.FS, urlpath string, t *template.Template, content map[string]ContentFunc) http.Handler
+type HandlerGen func(fsys fs.FS, urlpath string, t *template.Template, content map[string]ContentFunc, broker *Broker) http.Handler
 
 type Server struct {
 	*http.ServeMux // not func (*Server) Handler() because we create a new handler on reload
@@ -31,8 +31,9 @@ type Server struct {
 	Content        map[string]ContentFunc // key is file extension
 	Handlers       map[string]HandlerGen
 
-	errs  []Error
-	files map[string]string // urlpath => fspath
+	broker *Broker
+	errs   []Error
+	files  map[string]string // urlpath => fspath
 }
 
 func (srv *Server) log(err error, urlpath ...string) {
@@ -82,7 +83,7 @@ func (srv *Server) LoadDir(parentTmpl *template.Template, fspath string, urlpath
 				srv.log(err, urlpath, entry.Name())
 			}
 			fileroot := strings.TrimSuffix(entry.Name(), ext)
-			err = srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent) // leaks fileroot
+			err = srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent, srv.broker) // leaks fileroot
 			if err != nil {
 				srv.log(err, urlpath, entry.Name())
 			}
@@ -133,12 +134,14 @@ func (srv *Server) LoadDir(parentTmpl *template.Template, fspath string, urlpath
 				suburlpath,
 				tmpl,
 				srv.Content,
+				srv.broker,
 			))
 		}
 	}
 }
 
 func (srv *Server) Reload() {
+	srv.broker = NewBroker()
 	srv.errs = srv.errs[:0]
 	srv.files = make(map[string]string)
 	srv.ServeMux = http.NewServeMux()
@@ -150,6 +153,7 @@ func (srv *Server) Reload() {
 			http.NotFound(w, r)
 		}
 	})
+	srv.broker.Ready()
 }
 
 type TemplateData struct {

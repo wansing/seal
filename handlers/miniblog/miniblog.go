@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/wansing/seal"
@@ -23,7 +24,44 @@ type postPreview struct {
 	URL    string
 }
 
-func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]seal.ContentFunc) http.Handler {
+func Latest(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
+	// parse filecontent as config
+	blogURLPath, qtyStr, _ := strings.Cut(strings.TrimSpace(string(filecontent)), ":")
+	quantity, _ := strconv.Atoi(qtyStr)
+	if quantity <= 0 {
+		quantity = 10
+	}
+
+	// subscribe to post data
+	var previews []postPreview
+	broker.Subscribe(blogURLPath, func(data any) {
+		previews, _ = data.([]postPreview)
+		if len(previews) > quantity {
+			previews = previews[:quantity]
+		}
+	})
+
+	// add getter function to template, then parse it
+	dataFuncName := seal.TemplateName(urlpath, fileroot)
+	_, err := t.Funcs(template.FuncMap{
+		dataFuncName: func() []postPreview {
+			return previews
+		},
+	}).Parse(`
+		{{with ` + dataFuncName + `}}
+			<ul>
+				{{range .}}
+					<li id="{{.Anchor}}">
+						<a href="{{.URL}}">{{.Date}} {{.Title}}</a>
+					</li>
+				{{end}}
+			</ul>
+		{{end}}`)
+
+	return err
+}
+
+func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]seal.ContentFunc, broker *seal.Broker) http.Handler {
 	indexTmpl, _ := t.Clone()
 	indexTmpl.New("main").Parse(`
 		<ul>
@@ -81,7 +119,7 @@ func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]s
 		date := fileroot[:10]
 
 		tmpl, _ := postTmpl.Clone()
-		_ = contentFunc(tmpl.New("post"), urlpath, fileroot, filecontent)
+		_ = contentFunc(tmpl.New("post"), urlpath, fileroot, filecontent, broker)
 
 		// for blog index
 		var title = handlers.Heading(tmpl.Lookup("post"))
@@ -112,6 +150,8 @@ func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]s
 			)
 		})
 	}
+
+	broker.Publish(urlpath, previews)
 
 	return mux
 }

@@ -76,7 +76,7 @@ func (calendarData) MonthName(month time.Month) string {
 	}
 }
 
-func (cal CalendarBS5) Make(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
+func (cal CalendarBS5) Make(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
 	var config = cal.Config
 	if config == (icalcache.Config{}) {
 		config = icalcache.Config{

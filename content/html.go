@@ -1,11 +1,15 @@
 package content
 
-import "html/template"
+import (
+	"html/template"
+
+	"github.com/wansing/seal"
+)
 
 // Html parses the filecontent as an html template using Golang's html/template package.
 //
 // The template variable $dir is set to the URLPath of the dir where the content file is located.
-func Html(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
+func Html(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
 	// We want to create links and embed images which are relative to a directory.
 	//
 	// Rewriting <a href="..."> and <img src="..."> is hard because:
