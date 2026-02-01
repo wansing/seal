@@ -19,7 +19,7 @@ func main() {
 		Content: map[string]seal.ContentFunc{
 			".calendar-bs5": content.CalendarBS5{}.Make,
 			".countdown":    content.Countdown,
-			".html":         content.Html,
+			".html":         content.HTML,
 			".md":           content.Commonmark,
 		},
 		Handlers: map[string]seal.HandlerGen{

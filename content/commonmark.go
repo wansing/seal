@@ -16,5 +16,5 @@ var templateCmd = regexp.MustCompile(`\{([a-z-]{1,32})\}`)
 func Commonmark(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
 	htmlcontent := commonmark.RenderToString(filecontent)
 	htmlcontent = templateCmd.ReplaceAllString(htmlcontent, `{{template "$1" .}}`)
-	return Html(t, urlpath, fileroot, []byte(htmlcontent), broker)
+	return HTML(t, urlpath, fileroot, []byte(htmlcontent), broker)
 }

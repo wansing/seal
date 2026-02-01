@@ -2,27 +2,58 @@ package content
 
 import (
 	"html/template"
+	"path"
+	"strings"
+	"text/template/parse"
 
 	"github.com/wansing/seal"
+	"golang.org/x/net/html"
 )
 
 // Html parses the filecontent as an html template using Golang's html/template package.
 //
 // The template variable $dir is set to the URLPath of the dir where the content file is located.
-func Html(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
-	// We want to create links and embed images which are relative to a directory.
-	//
-	// Rewriting <a href="..."> and <img src="..."> is hard because:
-	// Execution puts templates from different directories together.
-	// So we can only manipulate them before execution, leaving two options:
-	// Parsing as HTML would be hard because the renderer would escape quotes in template actions.
-	// Modifying the template parse tree would also be hard because it does not parse HTML.
-	//
-	// Instead, let's pass the directory to the template through a variable $dir.
-	// We have to inject the template action before parsing, else parsing fails when trying to access $dir.
-	// This does only work for the main template, not for {{define}}'d templates.
-	htm := `{{$dir := "` + urlpath + `"}}` + string(filecontent)
+func HTML(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
+	parsed, err := t.Parse(string(filecontent)) // $parsed is only required for post-processing
+	if err != nil {
+		return err
+	}
 
-	_, err := t.Parse(htm)
-	return err
+	// Post-Processing: Make relative href and src paths absolute.
+	// This must be made before template execution, because execution brings templates with different urlpaths together.
+	// We modify the TextNodes (which contain the HTML code) of the parsed template. Other templates defined in filecontent are not modified.
+	if parsed == nil || parsed.Tree == nil || parsed.Tree.Root == nil {
+		return nil
+	}
+	var contextTag string
+	for _, node := range parsed.Tree.Root.Nodes {
+		if node.Type() != parse.NodeText {
+			continue
+		}
+
+		tokenizer := html.NewTokenizerFragment(strings.NewReader(node.String()), contextTag) // TextNodes can't be parsed because they are not well-formed, but can be tokenized
+		var newNodeText strings.Builder
+		for {
+			tokenType := tokenizer.Next()
+			if tokenType == html.ErrorToken {
+				break // assuming tokenizer.Err() == io.EOF
+			}
+			if tokenType != html.StartTagToken {
+				newNodeText.Write(tokenizer.Raw()) // raw copy everything except start tags
+				continue
+			}
+
+			token := tokenizer.Token()
+			contextTag = token.Data
+			for i, a := range token.Attr {
+				if (a.Key == "src" || a.Key == "href") && !path.IsAbs(a.Val) { // TODO ToLower?
+					token.Attr[i].Val = path.Join(urlpath, a.Val)
+				}
+			}
+			newNodeText.WriteString(token.String())
+		}
+		node.(*parse.TextNode).Text = []byte(newNodeText.String())
+	}
+
+	return nil
 }

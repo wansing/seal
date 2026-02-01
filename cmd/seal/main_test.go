@@ -42,7 +42,7 @@ var baseFS = fstest.MapFS{
 		Data: []byte(`# Hello`),
 	},
 	"site/main.html": &fstest.MapFile{
-		Data: []byte(`<h1><a href="{{$dir}}">Site</a>{{block "site" .}}{{end}}</h1>`),
+		Data: []byte(`<h1><a href=".">Site</a>{{block "site" .}}{{end}}</h1>`),
 	},
 	"site/subsite/site.md": &fstest.MapFile{
 		Data: []byte(`## Subsite`),
@@ -74,7 +74,7 @@ var testFS = mountFS{
 var srv = &seal.Server{
 	FS: testFS,
 	Content: map[string]seal.ContentFunc{
-		".html": content.Html,
+		".html": content.HTML,
 		".md":   content.Commonmark,
 	},
 }
