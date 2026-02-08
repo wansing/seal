@@ -1,6 +1,7 @@
 package seal
 
 import (
+	"bytes"
 	"encoding/json"
 	"html/template"
 	"io"
@@ -77,10 +78,13 @@ func (srv *Server) LoadDir(parentTmpl *template.Template, fspath string, urlpath
 		case srv.Content[ext] == nil:
 			srv.files[path.Join(urlpath, entry.Name())] = path.Join(fspath, entry.Name())
 		default:
-			hasContent = true
 			filecontent, err := fs.ReadFile(srv.FS, path.Join(fspath, entry.Name()))
 			if err != nil {
 				srv.log(err, urlpath, entry.Name())
+			}
+			// Template parse functions ignore template definitions "with a body containing only white space and comments", so we require non-whitespaces at least.
+			if len(bytes.TrimSpace(filecontent)) > 0 {
+				hasContent = true
 			}
 			fileroot := strings.TrimSuffix(entry.Name(), ext)
 			err = srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent, srv.broker) // leaks fileroot

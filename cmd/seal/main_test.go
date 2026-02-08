@@ -53,6 +53,12 @@ var baseFS = fstest.MapFS{
 	"empty-dir": &fstest.MapFile{
 		Mode: fs.ModeDir,
 	},
+	"quite-empty-dir": &fstest.MapFile{
+		Mode: fs.ModeDir,
+	},
+	"quite-empty-dir/empty-file.md": &fstest.MapFile{
+		Data: []byte(`	 `), // whitespace only
+	},
 	// mountpoint, required
 	"other": &fstest.MapFile{
 		Mode: fs.ModeDir,
@@ -97,6 +103,7 @@ func TestSeal(t *testing.T) {
 </h1></main></body></html>`},
 		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
 		{input: "/empty-dir", want: `404 page not found`},
+		{input: "/quite-empty-dir", want: `404 page not found`},
 		{input: "/other", want: `<html><body><main><h1>Other filesystem</h1>
 </main></body></html>`},
 	}
