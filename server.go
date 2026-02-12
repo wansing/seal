@@ -58,16 +58,14 @@ func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	}
 }
 
-func (srv *Server) LoadDir(parentTmpl *template.Template, fspath string, urlpath string) {
-	var tmpl, _ = parentTmpl.Clone()
-	var hasContent = false
-
+func (srv *Server) LoadDir(tmpl *template.Template, fspath string, urlpath string) {
 	entries, err := fs.ReadDir(srv.FS, fspath)
 	if err != nil {
 		srv.log(err, urlpath)
 	}
 
 	// files first
+	var hasContent = false
 	for _, entry := range entries {
 		ext := path.Ext(entry.Name())
 		switch {
@@ -123,8 +121,9 @@ func (srv *Server) LoadDir(parentTmpl *template.Template, fspath string, urlpath
 		case strings.HasPrefix(entry.Name(), "."):
 			continue // skip hidden dirs
 		case ext == "":
+			clonedTmpl, _ := tmpl.Clone()
 			srv.LoadDir(
-				tmpl,
+				clonedTmpl,
 				path.Join(fspath, entry.Name()),
 				path.Join(urlpath, Slug(entry.Name())),
 			)
