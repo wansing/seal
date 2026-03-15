@@ -42,7 +42,7 @@ func Latest(t *template.Template, urlpath, fileroot string, filecontent []byte, 
 	})
 
 	// add getter function to template, then parse it
-	dataFuncName := seal.TemplateName(urlpath, fileroot)
+	dataFuncName := seal.MakeTemplateName(urlpath, fileroot)
 	_, err := t.Funcs(template.FuncMap{
 		dataFuncName: func() []postPreview {
 			return previews
@@ -144,7 +144,7 @@ func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]s
 						RequestURL: r.URL,
 						URLPath:    path.Join(urlpath, fileroot),
 					},
-					BackURL: urlpath + "#" + seal.Slug(fileroot),
+					BackURL: urlpath + "#" + seal.MakeSlug(fileroot),
 					Date:    date,
 				},
 			)

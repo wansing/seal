@@ -125,7 +125,7 @@ func (srv *Server) LoadDir(tmpl *template.Template, fspath string, urlpath strin
 			srv.LoadDir(
 				clonedTmpl,
 				path.Join(fspath, entry.Name()),
-				path.Join(urlpath, Slug(entry.Name())),
+				path.Join(urlpath, MakeSlug(entry.Name())),
 			)
 		case srv.Handlers[ext] == nil:
 			// skip unknown extension
@@ -198,12 +198,12 @@ func templateHandler(tmpl *template.Template, urlpath string) (http.HandlerFunc,
 	}, nil
 }
 
-// Slug returns a modified version of the given string with [a-zA-Z0-9] retained and a dash in each gap.
-func Slug(s ...string) string {
+// MakeSlug returns a modified version of the given string with [a-zA-Z0-9] retained and a dash in each gap.
+func MakeSlug(s ...string) string {
 	return fields(s, "-")
 }
 
-func TemplateName(s ...string) string {
+func MakeTemplateName(s ...string) string {
 	return fields(s, "_")
 }
 
