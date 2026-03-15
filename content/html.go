@@ -46,7 +46,12 @@ func HTML(t *template.Template, urlpath, fileroot string, filecontent []byte, br
 			token := tokenizer.Token()
 			contextTag = token.Data
 			for i, a := range token.Attr {
-				if (a.Key == "src" || a.Key == "href") && !path.IsAbs(a.Val) { // TODO ToLower?
+				key := strings.ToLower(a.Key)
+				val := strings.TrimSpace(a.Val)
+				if key == "href" && !path.IsAbs(val) && !strings.HasPrefix(val, "#") {
+					token.Attr[i].Val = path.Join(urlpath, a.Val)
+				}
+				if key == "src" && !path.IsAbs(val) {
 					token.Attr[i].Val = path.Join(urlpath, a.Val)
 				}
 			}
