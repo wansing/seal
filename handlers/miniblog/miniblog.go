@@ -106,7 +106,16 @@ func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]s
 	var previews []postPreview
 
 	mux.HandleFunc("GET "+urlpath+"/", func(w http.ResponseWriter, r *http.Request) {
-		indexTmpl.Execute(w, previews)
+		indexTmpl.Execute(w, struct {
+			seal.TemplateData
+			Previews []postPreview
+		}{
+			TemplateData: seal.TemplateData{
+				RequestURL: r.URL,
+				URLPath:    path.Join(urlpath, fileroot),
+			},
+			Previews: previews,
+		})
 	})
 
 	for _, fn := range postFilenames {
