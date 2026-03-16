@@ -112,7 +112,7 @@ func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]s
 		}{
 			TemplateData: seal.TemplateData{
 				RequestURL: r.URL,
-				URLPath:    path.Join(urlpath, fileroot),
+				URLPath:    urlpath,
 			},
 			Previews: previews,
 		})
