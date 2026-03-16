@@ -1,20 +1,42 @@
 package content
 
 import (
+	"bytes"
 	"html/template"
 	"regexp"
 
 	"github.com/wansing/seal"
-	"gitlab.com/golang-commonmark/markdown"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
-var commonmark = markdown.New(markdown.HTML(true), markdown.Linkify(true), markdown.Typographer(true), markdown.MaxNesting(10))
+var commonmark = goldmark.New(
+	goldmark.WithParserOptions(
+		parser.WithAutoHeadingID(),
+	),
+	goldmark.WithRendererOptions(
+		html.WithUnsafe(),
+	),
+	goldmark.WithExtensions(
+		extension.NewFootnote(),
+		extension.NewLinkify(),
+		extension.NewTypographer(),
+	),
+)
 
-var templateCmd = regexp.MustCompile(`\{([a-z-]{1,32})\}`)
+var (
+	templateExpr = regexp.MustCompile(`\{([a-z-]{1,32})\}`)
+	templateRepl = `{{template "$1" .}}`
+)
 
 // Commonmark parses the filecontent as CommonMark Markdown and calls Html on the result.
 func Commonmark(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
-	htmlcontent := commonmark.RenderToString(filecontent)
-	htmlcontent = templateCmd.ReplaceAllString(htmlcontent, `{{template "$1" .}}`)
-	return HTML(t, urlpath, fileroot, []byte(htmlcontent), broker)
+	var buf bytes.Buffer
+	if err := commonmark.Convert(filecontent, &buf); err != nil {
+		return err
+	}
+	htmlcontent := templateExpr.ReplaceAll(buf.Bytes(), []byte(templateRepl))
+	return HTML(t, urlpath, fileroot, htmlcontent, broker)
 }

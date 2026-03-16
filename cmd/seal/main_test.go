@@ -95,16 +95,16 @@ func TestSeal(t *testing.T) {
 		input string
 		want  string
 	}{
-		{input: "/", want: `<html><body><main><h1>Hello</h1>
+		{input: "/", want: `<html><body><main><h1 id="hello">Hello</h1>
 </main></body></html>`},
 		{input: "/favicon.ico", want: "ICON"},
 		{input: "/site", want: `<html><body><main><h1><a href="/site">Site</a></h1></main></body></html>`},
-		{input: "/site/subsite", want: `<html><body><main><h1><a href="/site">Site</a><h2>Subsite</h2>
+		{input: "/site/subsite", want: `<html><body><main><h1><a href="/site">Site</a><h2 id="subsite">Subsite</h2>
 </h1></main></body></html>`},
 		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
 		{input: "/empty-dir", want: `404 page not found`},
 		{input: "/quite-empty-dir", want: `404 page not found`},
-		{input: "/other", want: `<html><body><main><h1>Other filesystem</h1>
+		{input: "/other", want: `<html><body><main><h1 id="other-filesystem">Other filesystem</h1>
 </main></body></html>`},
 	}
 
@@ -138,7 +138,7 @@ func TestReload(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	input := "/"
-	want := `<html><body><main><h1>Reloaded</h1>
+	want := `<html><body><main><h1 id="reloaded">Reloaded</h1>
 </main></body></html>`
 
 	resp, err := http.DefaultClient.Get("http://127.0.0.1:8081" + input)
