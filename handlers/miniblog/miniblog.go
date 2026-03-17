@@ -65,7 +65,7 @@ func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]s
 	indexTmpl, _ := t.Clone()
 	indexTmpl.New("main").Parse(`
 		<ul>
-			{{range .}}
+			{{range .Previews}}
 				<li id="{{.Anchor}}">
 					<a href="{{.URL}}">{{.Date}} {{.Title}}</a>
 				</li>
