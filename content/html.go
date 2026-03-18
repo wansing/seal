@@ -2,6 +2,7 @@ package content
 
 import (
 	"html/template"
+	"net/url"
 	"path"
 	"strings"
 	"text/template/parse"
@@ -47,12 +48,15 @@ func HTML(t *template.Template, urlpath, fileroot string, filecontent []byte, br
 			contextTag = token.Data
 			for i, a := range token.Attr {
 				key := strings.ToLower(a.Key)
-				val := strings.TrimSpace(a.Val)
-				if key == "href" && !path.IsAbs(val) && !strings.HasPrefix(val, "#") {
-					token.Attr[i].Val = path.Join(urlpath, a.Val)
-				}
-				if key == "src" && !path.IsAbs(val) {
-					token.Attr[i].Val = path.Join(urlpath, a.Val)
+				if key == "href" || key == "src" {
+					if u, err := url.Parse(strings.TrimSpace(a.Val)); err == nil {
+						if key == "href" && u.Scheme == "" && u.Path != "" && !path.IsAbs(u.Path) {
+							token.Attr[i].Val = path.Join(urlpath, a.Val)
+						}
+						if key == "src" && u.Scheme == "" && !path.IsAbs(u.Path) {
+							token.Attr[i].Val = path.Join(urlpath, a.Val)
+						}
+					}
 				}
 			}
 			newNodeText.WriteString(token.String())
