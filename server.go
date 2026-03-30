@@ -107,7 +107,7 @@ func (srv *Server) LoadDir(tmpl *template.Template, fspath string, urlpath strin
 		if urlpath == "/" {
 			srv.ServeMux.HandleFunc("GET /{$}", h)
 		} else {
-			srv.ServeMux.HandleFunc("GET "+urlpath, h) // urlpath is without trailing slash
+			srv.ServeMux.HandleFunc("GET "+urlpath, h) // urlpath is without trailing slash, so it's not a prefix match
 			srv.ServeMux.HandleFunc("GET "+urlpath+".html", redirectHTMLHandler)
 		}
 	}

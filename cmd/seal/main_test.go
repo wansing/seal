@@ -101,6 +101,7 @@ func TestSeal(t *testing.T) {
 		{input: "/site", want: `<html><body><main><h1><a href="/site">Site</a></h1></main></body></html>`},
 		{input: "/site/subsite", want: `<html><body><main><h1><a href="/site">Site</a><h2 id="subsite">Subsite</h2>
 </h1></main></body></html>`},
+		{input: "/site/subsite/not-existing-subsite", want: `404 page not found`},
 		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
 		{input: "/empty-dir", want: `404 page not found`},
 		{input: "/quite-empty-dir", want: `404 page not found`},
