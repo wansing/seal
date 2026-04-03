@@ -12,8 +12,6 @@ import (
 )
 
 // Html parses the filecontent as an html template using Golang's html/template package.
-//
-// The template variable $dir is set to the URLPath of the dir where the content file is located.
 func HTML(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
 	parsed, err := t.Parse(string(filecontent)) // $parsed is only required for post-processing
 	if err != nil {
