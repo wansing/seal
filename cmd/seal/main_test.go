@@ -38,7 +38,7 @@ var baseFS = fstest.MapFS{
 	"html.html": &fstest.MapFile{
 		Data: []byte(`<html><body><main>{{block "main" .}}{{end}}</main></body></html>`),
 	},
-	"main.md": &fstest.MapFile{
+	"$/main.md": &fstest.MapFile{
 		Data: []byte(`# Hello`),
 	},
 	"site/main.html": &fstest.MapFile{
@@ -52,6 +52,12 @@ var baseFS = fstest.MapFS{
 	},
 	"empty-dir": &fstest.MapFile{
 		Mode: fs.ModeDir,
+	},
+	"dir-without-main-template": &fstest.MapFile{
+		Mode: fs.ModeDir,
+	},
+	"dir-without-main-template/other.md": &fstest.MapFile{
+		Data: []byte(`other`),
 	},
 	"quite-empty-dir": &fstest.MapFile{
 		Mode: fs.ModeDir,
@@ -103,6 +109,7 @@ func TestSeal(t *testing.T) {
 </h1></main></body></html>`},
 		{input: "/site/subsite/not-existing-subsite", want: `404 page not found`},
 		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
+		{input: "/dir-without-main-template", want: `<html><body><main></main></body></html>`},
 		{input: "/empty-dir", want: `404 page not found`},
 		{input: "/quite-empty-dir", want: `404 page not found`},
 		{input: "/other", want: `<html><body><main><h1 id="other-filesystem">Other filesystem</h1>
@@ -131,15 +138,15 @@ func TestSeal(t *testing.T) {
 
 func TestReload(t *testing.T) {
 
-	baseFS["main.md"] = &fstest.MapFile{
-		Data: []byte(`# Reloaded`),
+	baseFS["$/main.md"] = &fstest.MapFile{
+		Data: []byte(`# Modified`),
 	}
 
 	srv.Reload()
 	time.Sleep(100 * time.Millisecond)
 
 	input := "/"
-	want := `<html><body><main><h1 id="reloaded">Reloaded</h1>
+	want := `<html><body><main><h1 id="modified">Modified</h1>
 </main></body></html>`
 
 	resp, err := http.DefaultClient.Get("http://127.0.0.1:8081" + input)

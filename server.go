@@ -58,48 +58,35 @@ func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	}
 }
 
-func (srv *Server) LoadDir(tmpl *template.Template, fspath string, urlpath string) {
+func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath string) {
 	entries, err := fs.ReadDir(srv.FS, fspath)
 	if err != nil {
 		srv.log(err, urlpath)
 	}
 
-	// files first
+	// read files
 	var hasContent = false
 	for _, entry := range entries {
-		ext := path.Ext(entry.Name())
-		switch {
-		case entry.IsDir():
-			continue // later
-		case strings.HasPrefix(entry.Name(), "."):
-			continue // skip hidden files
-		case srv.Content[ext] == nil:
-			srv.files[path.Join(urlpath, entry.Name())] = path.Join(fspath, entry.Name())
-		default:
-			filecontent, err := fs.ReadFile(srv.FS, path.Join(fspath, entry.Name()))
-			if err != nil {
-				srv.log(err, urlpath, entry.Name())
-			}
-			// Template parse functions ignore template definitions "with a body containing only white space and comments", so we require non-whitespaces at least.
-			if len(bytes.TrimSpace(filecontent)) > 0 {
-				hasContent = true
-			}
-			fileroot := strings.TrimSuffix(entry.Name(), ext)
-			err = srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent, srv.broker) // leaks fileroot
-			if err != nil {
-				srv.log(err, urlpath, entry.Name())
-			}
-		}
+		srv.readFile(tmpl, fspath, urlpath, &hasContent, entry)
 	}
 
-	// make tmpl.Execute work without specifying a template name
+	// make "html" template default after it has been loaded, so that Execute works out of the box
 	if h := tmpl.Lookup("html"); h != nil {
 		tmpl = h
 	}
 
+	// use separate template for $
+	dollarTmpl, _ := tmpl.Clone()
+
+	// read files in $ subdir
+	dollarEntries, _ := fs.ReadDir(srv.FS, path.Join(fspath, "$"))
+	for _, entry := range dollarEntries {
+		srv.readFile(dollarTmpl, path.Join(fspath, "$"), urlpath, &hasContent, entry)
+	}
+
 	// register template handler for this directory
 	if hasContent {
-		h, err := templateHandler(tmpl, urlpath)
+		h, err := templateHandler(dollarTmpl, urlpath)
 		if err != nil {
 			srv.log(err, urlpath)
 		}
@@ -114,15 +101,15 @@ func (srv *Server) LoadDir(tmpl *template.Template, fspath string, urlpath strin
 
 	// subdirs
 	for _, entry := range entries {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") || entry.Name() == "$" {
+			continue
+		}
+
 		ext := path.Ext(entry.Name())
 		switch {
-		case !entry.IsDir():
-			continue // files already done
-		case strings.HasPrefix(entry.Name(), "."):
-			continue // skip hidden dirs
 		case ext == "":
-			clonedTmpl, _ := tmpl.Clone()
-			srv.LoadDir(
+			clonedTmpl, _ := tmpl.Clone() // always clone because we may have multiple subdirs
+			srv.readDir(
 				clonedTmpl,
 				path.Join(fspath, entry.Name()),
 				path.Join(urlpath, MakeSlug(entry.Name())),
@@ -130,16 +117,45 @@ func (srv *Server) LoadDir(tmpl *template.Template, fspath string, urlpath strin
 		case srv.Handlers[ext] == nil:
 			// skip unknown extension
 		default:
+			clonedTmpl, _ := tmpl.Clone() // always clone because we may have multiple subdirs
 			subfs, _ := fs.Sub(srv.FS, entry.Name())
 			suburlpath := path.Join(urlpath, strings.TrimSuffix(entry.Name(), ext))
 			srv.ServeMux.Handle(suburlpath+"/", srv.Handlers[ext]( // trailing slash in order to to match subtree
 				subfs,
 				suburlpath,
-				tmpl,
+				clonedTmpl,
 				srv.Content,
 				srv.broker,
 			))
 		}
+	}
+}
+
+func (srv *Server) readFile(tmpl *template.Template, fspath string, urlpath string, hasContent *bool, entry fs.DirEntry) {
+	if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+		return
+	}
+
+	// serve verbatim if filename has unknown extension
+	ext := path.Ext(entry.Name())
+	if srv.Content[ext] == nil {
+		srv.files[path.Join(urlpath, entry.Name())] = path.Join(fspath, entry.Name())
+		return
+	}
+
+	filecontent, err := fs.ReadFile(srv.FS, path.Join(fspath, entry.Name()))
+	if err != nil {
+		srv.log(err, urlpath, entry.Name())
+	}
+	if len(bytes.TrimSpace(filecontent)) == 0 {
+		return // skip empty files (note that in Go's template packages a "template definition with a body containing only white space and comments is considered empty" as well)
+	}
+	fileroot := strings.TrimSuffix(entry.Name(), ext)
+	err = srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent, srv.broker) // leaks fileroot
+	if err == nil {
+		*hasContent = true
+	} else {
+		srv.log(err, urlpath, entry.Name())
 	}
 }
 
@@ -148,7 +164,7 @@ func (srv *Server) Reload() {
 	srv.errs = srv.errs[:0]
 	srv.files = make(map[string]string)
 	srv.ServeMux = http.NewServeMux()
-	srv.LoadDir(template.New(""), ".", "/")
+	srv.readDir(template.New(""), ".", "/")
 	srv.ServeMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if fspath, ok := srv.files[r.URL.Path]; ok {
 			http.ServeFileFS(w, r, srv.FS, fspath)
