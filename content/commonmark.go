@@ -5,7 +5,6 @@ import (
 	"html/template"
 	"regexp"
 
-	"github.com/wansing/seal"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
@@ -32,11 +31,11 @@ var (
 )
 
 // Commonmark parses the filecontent as CommonMark Markdown and calls Html on the result.
-func Commonmark(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
+func Commonmark(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
 	var buf bytes.Buffer
 	if err := commonmark.Convert(filecontent, &buf); err != nil {
 		return err
 	}
 	htmlcontent := templateExpr.ReplaceAll(buf.Bytes(), []byte(templateRepl))
-	return HTML(t, urlpath, fileroot, htmlcontent, broker)
+	return HTML(t, urlpath, fileroot, htmlcontent)
 }

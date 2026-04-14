@@ -8,14 +8,16 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/wansing/seal"
 	"github.com/wansing/seal/handlers"
 )
 
-var isoDate = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
+var (
+	broker  = &seal.Broker[[]postPreview]{}
+	isoDate = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
+)
 
 type postPreview struct {
 	Anchor string
@@ -24,21 +26,11 @@ type postPreview struct {
 	URL    string
 }
 
-func Latest(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
-	// parse filecontent as config
-	blogURLPath, qtyStr, _ := strings.Cut(strings.TrimSpace(string(filecontent)), ":")
-	quantity, _ := strconv.Atoi(qtyStr)
-	if quantity <= 0 {
-		quantity = 10
-	}
-
+func Latest(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
 	// subscribe to post data
 	var previews []postPreview
-	broker.Subscribe(blogURLPath, func(data any) {
-		previews, _ = data.([]postPreview)
-		if len(previews) > quantity {
-			previews = previews[:quantity]
-		}
+	broker.Subscribe(func(data []postPreview) {
+		previews = data
 	})
 
 	// add getter function to template, then parse it
@@ -61,7 +53,7 @@ func Latest(t *template.Template, urlpath, fileroot string, filecontent []byte, 
 	return err
 }
 
-func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]seal.ContentFunc, broker *seal.Broker) http.Handler {
+func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]seal.ContentFunc) http.Handler {
 	indexTmpl, _ := t.Clone()
 	indexTmpl.New("main").Parse(`
 		<ul>
@@ -128,7 +120,7 @@ func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]s
 		date := fileroot[:10]
 
 		tmpl, _ := postTmpl.Clone()
-		_ = contentFunc(tmpl.New("post"), urlpath, fileroot, filecontent, broker)
+		_ = contentFunc(tmpl.New("post"), urlpath, fileroot, filecontent)
 
 		// for blog index
 		var title = handlers.Heading(tmpl.Lookup("post"))
@@ -160,7 +152,7 @@ func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]s
 		})
 	}
 
-	broker.Publish(urlpath, previews)
+	broker.Publish(previews)
 
 	return mux
 }

@@ -16,7 +16,7 @@ import (
 // A ContentFunc populates the template t.
 // The urlpath can be used to make relative links absolute.
 // The fileroot is useful to distinguish between multiple instances of this content on the same page.
-type ContentFunc func(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *Broker) error
+type ContentFunc func(t *template.Template, urlpath, fileroot string, filecontent []byte) error
 
 type Error struct {
 	URLPath string `json:"urlpath"`
@@ -24,7 +24,7 @@ type Error struct {
 }
 
 // handler must handle full paths (including urlpath prefix)
-type HandlerGen func(fsys fs.FS, urlpath string, t *template.Template, content map[string]ContentFunc, broker *Broker) http.Handler
+type HandlerGen func(fsys fs.FS, urlpath string, t *template.Template, content map[string]ContentFunc) http.Handler
 
 type Server struct {
 	*http.ServeMux // not func (*Server) Handler() because we create a new handler on reload
@@ -32,9 +32,8 @@ type Server struct {
 	Content        map[string]ContentFunc // key is file extension
 	Handlers       map[string]HandlerGen
 
-	broker *Broker
-	errs   []Error
-	files  map[string]string // urlpath => fspath
+	errs  []Error
+	files map[string]string // urlpath => fspath
 }
 
 func (srv *Server) log(err error, urlpath ...string) {
@@ -125,7 +124,6 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 				suburlpath,
 				clonedTmpl,
 				srv.Content,
-				srv.broker,
 			))
 		}
 	}
@@ -151,7 +149,7 @@ func (srv *Server) readFile(tmpl *template.Template, fspath string, urlpath stri
 		return // skip empty files (note that in Go's template packages a "template definition with a body containing only white space and comments is considered empty" as well)
 	}
 	fileroot := strings.TrimSuffix(entry.Name(), ext)
-	err = srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent, srv.broker) // leaks fileroot
+	err = srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent) // leaks fileroot
 	if err == nil {
 		*hasContent = true
 	} else {
@@ -160,7 +158,6 @@ func (srv *Server) readFile(tmpl *template.Template, fspath string, urlpath stri
 }
 
 func (srv *Server) Reload() {
-	srv.broker = NewBroker()
 	srv.errs = srv.errs[:0]
 	srv.files = make(map[string]string)
 	srv.ServeMux = http.NewServeMux()
@@ -172,7 +169,6 @@ func (srv *Server) Reload() {
 			http.NotFound(w, r)
 		}
 	})
-	srv.broker.Ready()
 }
 
 type TemplateData struct {

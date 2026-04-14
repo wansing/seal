@@ -5,29 +5,20 @@ import (
 )
 
 func TestBroker(t *testing.T) {
+	b := &Broker[string]{}
+	b.Publish("hello-world")
+
 	var got string
-	b := NewBroker()
-	b.Subscribe("/foo", func(data any) {
-		got = data.(string)
+	b.Subscribe(func(data string) {
+		got = data
 	})
 
-	b.Publish("/foo", "hello-world")
-
-	// before ready
-	if want := ""; got != want {
-		t.Fatalf("got %s, want %s", got, want)
-	}
-
-	b.Ready()
-
-	// after ready
 	if want := "hello-world"; got != want {
 		t.Fatalf("got %s, want %s", got, want)
 	}
 
-	b.Publish("/foo", "goodbye")
+	b.Publish("goodbye")
 
-	// updated
 	if want := "goodbye"; got != want {
 		t.Fatalf("got %s, want %s", got, want)
 	}

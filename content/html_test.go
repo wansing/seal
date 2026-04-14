@@ -26,7 +26,7 @@ func TestHrefSrc(t *testing.T) {
 
 	for _, test := range tests {
 		tmpl := template.New("html")
-		err := HTML(tmpl, "/foo", "main", []byte(test.input), nil)
+		err := HTML(tmpl, "/foo", "main", []byte(test.input))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -42,7 +42,7 @@ func TestHrefSrc(t *testing.T) {
 
 func TestTemplateNesting(t *testing.T) {
 	tmpl := template.Must(template.New("html").Parse(`<html><body>{{template "main" .}}</body></html>`))
-	err := HTML(tmpl.New("main"), "/foo", "main", []byte(`<p>Hello World!</p><a href="bar"><img src="image.jpg"></a>`), nil)
+	err := HTML(tmpl.New("main"), "/foo", "main", []byte(`<p>Hello World!</p><a href="bar"><img src="image.jpg"></a>`))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -23,7 +23,7 @@ type countdownData struct {
 	Seconds int
 }
 
-func Countdown(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
+func Countdown(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
 	isoEnd, tmplHtml, _ := strings.Cut(string(filecontent), "\n")
 
 	isoEnd = strings.TrimSpace(isoEnd)

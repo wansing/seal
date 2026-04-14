@@ -7,12 +7,11 @@ import (
 	"strings"
 	"text/template/parse"
 
-	"github.com/wansing/seal"
 	"golang.org/x/net/html"
 )
 
 // Html parses the filecontent as an html template using Golang's html/template package.
-func HTML(t *template.Template, urlpath, fileroot string, filecontent []byte, broker *seal.Broker) error {
+func HTML(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
 	parsed, err := t.Parse(string(filecontent)) // $parsed is only required for post-processing
 	if err != nil {
 		return err
