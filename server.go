@@ -65,7 +65,10 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 	// read files
 	var hasContent = false
 	for _, entry := range entries {
-		srv.readFile(tmpl, fspath, urlpath, &hasContent, entry)
+		err := srv.readFile(tmpl, fspath, urlpath, &hasContent, entry)
+		if err != nil {
+			srv.log(err, urlpath, entry.Name())
+		}
 	}
 
 	// make "html" template default after it has been loaded, so that Execute works out of the box
@@ -79,7 +82,10 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 	// read files in $ subdir
 	dollarEntries, _ := fs.ReadDir(srv.FS, path.Join(fspath, "$"))
 	for _, entry := range dollarEntries {
-		srv.readFile(dollarTmpl, path.Join(fspath, "$"), urlpath, &hasContent, entry)
+		err := srv.readFile(dollarTmpl, path.Join(fspath, "$"), urlpath, &hasContent, entry)
+		if err != nil {
+			srv.log(err, urlpath, entry.Name())
+		}
 	}
 
 	// register template handler for this directory
@@ -128,29 +134,26 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 	}
 }
 
-func (srv *Server) readFile(tmpl *template.Template, fspath string, urlpath string, hasContent *bool, entry fs.DirEntry) {
+func (srv *Server) readFile(tmpl *template.Template, fspath string, urlpath string, hasContent *bool, entry fs.DirEntry) error {
 	if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-		return
+		return nil
 	}
 
 	// serve verbatim if filename has unknown extension
 	ext := path.Ext(entry.Name())
 	if srv.Content[ext] == nil {
 		srv.files[path.Join(urlpath, entry.Name())] = path.Join(fspath, entry.Name())
-		return
+		return nil
 	}
 
+	*hasContent = true
+	fileroot := strings.TrimSuffix(entry.Name(), ext)
 	filecontent, err := fs.ReadFile(srv.FS, path.Join(fspath, entry.Name()))
 	if err != nil {
-		srv.log(err, urlpath, entry.Name())
+		return err
 	}
-	fileroot := strings.TrimSuffix(entry.Name(), ext)
-	err = srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent) // leaks fileroot
-	if err == nil {
-		*hasContent = true
-	} else {
-		srv.log(err, urlpath, entry.Name())
-	}
+
+	return srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent)
 }
 
 func (srv *Server) Reload() {
