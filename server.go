@@ -1,7 +1,6 @@
 package seal
 
 import (
-	"bytes"
 	"encoding/json"
 	"html/template"
 	"io"
@@ -144,9 +143,6 @@ func (srv *Server) readFile(tmpl *template.Template, fspath string, urlpath stri
 	filecontent, err := fs.ReadFile(srv.FS, path.Join(fspath, entry.Name()))
 	if err != nil {
 		srv.log(err, urlpath, entry.Name())
-	}
-	if len(bytes.TrimSpace(filecontent)) == 0 {
-		return // skip empty files (note that in Go's template packages a "template definition with a body containing only white space and comments is considered empty" as well)
 	}
 	fileroot := strings.TrimSuffix(entry.Name(), ext)
 	err = srv.Content[ext](tmpl.New(fileroot), urlpath, fileroot, filecontent) // leaks fileroot

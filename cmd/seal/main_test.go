@@ -44,6 +44,9 @@ var baseFS = fstest.MapFS{
 	"site/main.html": &fstest.MapFile{
 		Data: []byte(`<h1><a href=".">Site</a>{{block "site" .}}{{end}}</h1>`),
 	},
+	"site/empty/main.html": &fstest.MapFile{
+		Data: []byte(`{{""}}`), // "A template definition with a body containing only white space and comments is considered empty and will not replace an existing template's body."
+	},
 	"site/subsite/site.md": &fstest.MapFile{
 		Data: []byte(`## Subsite`),
 	},
@@ -58,12 +61,6 @@ var baseFS = fstest.MapFS{
 	},
 	"dir-without-main-template/other.md": &fstest.MapFile{
 		Data: []byte(`other`),
-	},
-	"quite-empty-dir": &fstest.MapFile{
-		Mode: fs.ModeDir,
-	},
-	"quite-empty-dir/empty-file.md": &fstest.MapFile{
-		Data: []byte(`	 `), // whitespace only
 	},
 	// mountpoint, required
 	"other": &fstest.MapFile{
@@ -105,13 +102,13 @@ func TestSeal(t *testing.T) {
 </main></body></html>`},
 		{input: "/favicon.ico", want: "ICON"},
 		{input: "/site", want: `<html><body><main><h1><a href="/site">Site</a></h1></main></body></html>`},
+		{input: "/site/empty", want: `<html><body><main></main></body></html>`},
 		{input: "/site/subsite", want: `<html><body><main><h1><a href="/site">Site</a><h2 id="subsite">Subsite</h2>
 </h1></main></body></html>`},
 		{input: "/site/subsite/not-existing-subsite", want: `404 page not found`},
 		{input: "/nested-definitions", want: `<html><body><main>This is main.</main></body></html>`},
 		{input: "/dir-without-main-template", want: `<html><body><main></main></body></html>`},
 		{input: "/empty-dir", want: `404 page not found`},
-		{input: "/quite-empty-dir", want: `404 page not found`},
 		{input: "/other", want: `<html><body><main><h1 id="other-filesystem">Other filesystem</h1>
 </main></body></html>`},
 	}
