@@ -31,8 +31,7 @@ type Server struct {
 	Content        map[string]ContentFunc // key is file extension
 	Handlers       map[string]HandlerGen
 
-	errs  []Error
-	files map[string]string // urlpath => fspath
+	errs []Error
 }
 
 func (srv *Server) log(err error, urlpath ...string) {
@@ -56,7 +55,7 @@ func (srv *Server) ErrorsHandler() http.HandlerFunc {
 	}
 }
 
-func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath string) {
+func (srv *Server) readDir(mux *http.ServeMux, tmpl *template.Template, fspath string, urlpath string) {
 	entries, err := fs.ReadDir(srv.FS, fspath)
 	if err != nil {
 		srv.log(err, urlpath)
@@ -65,7 +64,7 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 	// read files
 	var hasContent = false
 	for _, entry := range entries {
-		err := srv.readFile(tmpl, fspath, urlpath, &hasContent, entry)
+		err := srv.readFile(mux, tmpl, fspath, urlpath, &hasContent, entry)
 		if err != nil {
 			srv.log(err, urlpath, entry.Name())
 		}
@@ -82,7 +81,7 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 	// read files in $ subdir
 	dollarEntries, _ := fs.ReadDir(srv.FS, path.Join(fspath, "$"))
 	for _, entry := range dollarEntries {
-		err := srv.readFile(dollarTmpl, path.Join(fspath, "$"), urlpath, &hasContent, entry)
+		err := srv.readFile(mux, dollarTmpl, path.Join(fspath, "$"), urlpath, &hasContent, entry)
 		if err != nil {
 			srv.log(err, urlpath, entry.Name())
 		}
@@ -96,10 +95,10 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 		}
 
 		if urlpath == "/" {
-			srv.ServeMux.HandleFunc("GET /{$}", h)
+			mux.HandleFunc("GET /{$}", h)
 		} else {
-			srv.ServeMux.HandleFunc("GET "+urlpath, h) // urlpath is without trailing slash, so it's not a prefix match
-			srv.ServeMux.HandleFunc("GET "+urlpath+".html", redirectHTMLHandler)
+			mux.HandleFunc("GET "+urlpath, h) // urlpath is without trailing slash, so it's not a prefix match
+			mux.HandleFunc("GET "+urlpath+".html", redirectHTMLHandler)
 		}
 	}
 
@@ -114,6 +113,7 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 		case ext == "":
 			clonedTmpl, _ := tmpl.Clone() // always clone because we may have multiple subdirs
 			srv.readDir(
+				mux,
 				clonedTmpl,
 				path.Join(fspath, entry.Name()),
 				path.Join(urlpath, MakeSlug(entry.Name())),
@@ -124,7 +124,7 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 			clonedTmpl, _ := tmpl.Clone() // always clone because we may have multiple subdirs
 			subfs, _ := fs.Sub(srv.FS, entry.Name())
 			suburlpath := path.Join(urlpath, strings.TrimSuffix(entry.Name(), ext))
-			srv.ServeMux.Handle(suburlpath+"/", srv.Handlers[ext]( // trailing slash in order to to match subtree
+			mux.Handle(suburlpath+"/", srv.Handlers[ext]( // trailing slash in order to to match subtree
 				subfs,
 				suburlpath,
 				clonedTmpl,
@@ -134,15 +134,17 @@ func (srv *Server) readDir(tmpl *template.Template, fspath string, urlpath strin
 	}
 }
 
-func (srv *Server) readFile(tmpl *template.Template, fspath string, urlpath string, hasContent *bool, entry fs.DirEntry) error {
+func (srv *Server) readFile(mux *http.ServeMux, tmpl *template.Template, fspath string, urlpath string, hasContent *bool, entry fs.DirEntry) error {
 	if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
 		return nil
 	}
 
-	// serve verbatim if filename has unknown extension
+	// if extension is unknown, then serve as static file
 	ext := path.Ext(entry.Name())
 	if srv.Content[ext] == nil {
-		srv.files[path.Join(urlpath, entry.Name())] = path.Join(fspath, entry.Name())
+		mux.HandleFunc("GET "+path.Join(urlpath, entry.Name()), func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFileFS(w, r, srv.FS, path.Join(fspath, entry.Name()))
+		})
 		return nil
 	}
 
@@ -158,16 +160,10 @@ func (srv *Server) readFile(tmpl *template.Template, fspath string, urlpath stri
 
 func (srv *Server) Reload() {
 	srv.errs = srv.errs[:0]
-	srv.files = make(map[string]string)
-	srv.ServeMux = http.NewServeMux()
-	srv.readDir(template.New(""), ".", "/")
-	srv.ServeMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if fspath, ok := srv.files[r.URL.Path]; ok {
-			http.ServeFileFS(w, r, srv.FS, fspath)
-		} else {
-			http.NotFound(w, r)
-		}
-	})
+	// don't mess with current mux (though live reload still won't be perfect, e. g. when deleting static files)
+	mux := http.NewServeMux()
+	srv.readDir(mux, template.New(""), ".", "/")
+	srv.ServeMux = mux
 }
 
 type TemplateData struct {
