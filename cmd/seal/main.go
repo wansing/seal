@@ -13,6 +13,7 @@ import (
 func main() {
 	listen := "127.0.0.1:8080"
 	reloadSecret := "change-me"
+	myBlog := &miniblog.Miniblog{}
 
 	srv := &seal.Server{
 		FS: os.DirFS("."),
@@ -23,7 +24,7 @@ func main() {
 			".md":           content.Commonmark,
 		},
 		Handlers: map[string]seal.HandlerGen{
-			".blog": miniblog.Make,
+			".blog": myBlog.MakeHandler,
 		},
 	}
 	srv.Reload()

@@ -14,10 +14,11 @@ import (
 	"github.com/wansing/seal/handlers"
 )
 
-var (
-	broker  = &seal.Broker[[]postPreview]{}
-	isoDate = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
-)
+var isoDate = regexp.MustCompile("[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
+type Miniblog struct {
+	previews []postPreview
+}
 
 type postPreview struct {
 	Anchor string
@@ -26,18 +27,12 @@ type postPreview struct {
 	URL    string
 }
 
-func Latest(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
-	// subscribe to post data
-	var previews []postPreview
-	broker.Subscribe(func(data []postPreview) {
-		previews = data
-	})
-
+func (mb *Miniblog) Latest(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
 	// add getter function to template, then parse it
 	dataFuncName := seal.MakeTemplateName(urlpath, fileroot)
 	_, err := t.Funcs(template.FuncMap{
 		dataFuncName: func() []postPreview {
-			return previews
+			return mb.previews
 		},
 	}).Parse(`
 		{{with ` + dataFuncName + `}}
@@ -53,7 +48,7 @@ func Latest(t *template.Template, urlpath, fileroot string, filecontent []byte) 
 	return err
 }
 
-func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]seal.ContentFunc) http.Handler {
+func (mb *Miniblog) MakeHandler(fsys fs.FS, urlpath string, t *template.Template, content map[string]seal.ContentFunc) http.Handler {
 	indexTmpl, _ := t.Clone()
 	indexTmpl.New("main").Parse(`
 		<ul>
@@ -152,7 +147,7 @@ func Make(fsys fs.FS, urlpath string, t *template.Template, content map[string]s
 		})
 	}
 
-	broker.Publish(previews)
+	mb.previews = previews
 
 	return mux
 }
