@@ -22,6 +22,7 @@ func main() {
 			".countdown":    content.Countdown,
 			".html":         content.HTML,
 			".md":           content.Commonmark,
+			".random":       content.RandomHTML,
 		},
 		Handlers: map[string]seal.HandlerGen{
 			".blog": myBlog.MakeHandler,
