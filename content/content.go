@@ -1,6 +1,10 @@
 package content
 
 import (
+	"crypto/rand"
+	"fmt"
+	"html/template"
+	"io/fs"
 	"net/url"
 	"path"
 	"strings"
@@ -40,4 +44,21 @@ func AbsHrefSrc(htm, urlpath string) string {
 		result.WriteString(token.String())
 	}
 	return result.String()
+}
+
+func ParseWithData(t *template.Template, filecontent string, dataFunc any) error {
+	randomName := "F" + rand.Text() // always start with a letter
+	t.Funcs(template.FuncMap{
+		randomName: dataFunc,
+	})
+	_, err := t.Parse(fmt.Sprintf("{{with %s}}", randomName) + filecontent + "{{end}}")
+	return err
+}
+
+func ParseWithDataFS(t *template.Template, fsys fs.FS, filename string, dataFunc any) error {
+	bs, err := fs.ReadFile(fsys, filename)
+	if err != nil {
+		return err
+	}
+	return ParseWithData(t, string(bs), dataFunc)
 }

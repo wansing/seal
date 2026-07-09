@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/wansing/seal"
+	"github.com/wansing/seal/content"
 	"github.com/wansing/seal/handlers"
 )
 
@@ -28,24 +29,19 @@ type postPreview struct {
 }
 
 func (mb *Miniblog) Latest(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
-	// add getter function to template, then parse it
-	dataFuncName := seal.MakeTemplateName(urlpath, fileroot)
-	_, err := t.Funcs(template.FuncMap{
-		dataFuncName: func() []postPreview {
+	return content.ParseWithData(
+		t,
+		`<ul>
+			{{range .}}
+				<li id="{{.Anchor}}">
+					<a href="{{.URL}}">{{.Date}} {{.Title}}</a>
+				</li>
+			{{end}}
+		</ul>`,
+		func() []postPreview {
 			return mb.previews
 		},
-	}).Parse(`
-		{{with ` + dataFuncName + `}}
-			<ul>
-				{{range .}}
-					<li id="{{.Anchor}}">
-						<a href="{{.URL}}">{{.Date}} {{.Title}}</a>
-					</li>
-				{{end}}
-			</ul>
-		{{end}}`)
-
-	return err
+	)
 }
 
 func (mb *Miniblog) MakeHandler(fsys fs.FS, urlpath string, t *template.Template, content map[string]seal.ContentFunc) http.Handler {

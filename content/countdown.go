@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/icza/gox/timex"
-	"github.com/wansing/seal"
 )
 
 type countdownData struct {
@@ -46,24 +45,9 @@ func Countdown(t *template.Template, urlpath, fileroot string, filecontent []byt
 			<span id="seconds">{{$seconds}}</span> seconds`
 	}
 
-	dataFuncName := seal.MakeTemplateName(urlpath, fileroot)
-	_, err = t.Funcs(template.FuncMap{
-		dataFuncName: func() countdownData {
-			years, months, days, hours, minutes, seconds := timex.Diff(time.Now(), end) // respects leap years
-			return countdownData{
-				End:     end,
-				Years:   years,
-				Months:  months,
-				Days:    days,
-				Hours:   hours,
-				Minutes: minutes,
-				Seconds: seconds,
-			}
-		},
-	}).Parse(`
-		{{$data := ` + dataFuncName + `}}
-
-		<script type="text/javascript">
+	return ParseWithData(
+		t,
+		`<script type="text/javascript">
 			function updateCountdown() {
 
 				// Copyright 2018 Andras Belicza, Apache License 2.0
@@ -71,7 +55,7 @@ func Countdown(t *template.Template, urlpath, fileroot string, filecontent []byt
 				// modifications: translated from Golang to JavaScript
 
 				let a = new Date();
-				let b = new Date({{$data.End.Unix}} * 1000); // constructor takes milliseconds
+				let b = new Date({{.End.Unix}} * 1000); // constructor takes milliseconds
 				if(a > b) {
 					return;
 				}
@@ -146,14 +130,25 @@ func Countdown(t *template.Template, urlpath, fileroot string, filecontent []byt
 			updateCountdown();
 		</script>
 
-		{{$years   := $data.Years}}
-		{{$months  := $data.Months}}
-		{{$days    := $data.Days}}
-		{{$hours   := $data.Hours}}
-		{{$minutes := $data.Minutes}}
-		{{$seconds := $data.Seconds}}
+		{{$years   := .Years}}
+		{{$months  := .Months}}
+		{{$days    := .Days}}
+		{{$hours   := .Hours}}
+		{{$minutes := .Minutes}}
+		{{$seconds := .Seconds}}
 
-		` + tmplHtml)
-
-	return err
+		`+tmplHtml,
+		func() countdownData {
+			years, months, days, hours, minutes, seconds := timex.Diff(time.Now(), end) // respects leap years
+			return countdownData{
+				End:     end,
+				Years:   years,
+				Months:  months,
+				Days:    days,
+				Hours:   hours,
+				Minutes: minutes,
+				Seconds: seconds,
+			}
+		},
+	)
 }

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/wansing/go-ical-cache"
-	"github.com/wansing/seal"
 	"github.com/wansing/seal/content/calendar"
 )
 
@@ -84,17 +83,10 @@ func (cal CalendarBS5) Make(t *template.Template, urlpath, fileroot string, file
 		}
 	}
 
-	dataFuncName := seal.MakeTemplateName(urlpath, fileroot)
-	_, err := t.Funcs(template.FuncMap{
-		dataFuncName: func() calendarData {
-			return calendarData{
-				Feed:     &icalcache.Cache{Config: config},
-				Fileroot: fileroot,
-			}
-		},
-	}).Parse(`
-		{{$data := ` + dataFuncName + `}}
-		{{with $data.Month .RequestURL}}
+	return ParseWithData(
+		t,
+		`{{$data := .}}
+		{{with .Month $.RequestURL}}
 			<div>
 				{{with .Error}}
 					<div class="alert alert-danger text-center">Error getting calendar events: {{.}}</div>
@@ -133,7 +125,12 @@ func (cal CalendarBS5) Make(t *template.Template, urlpath, fileroot string, file
 					{{end}}
 				</div>
 			</div>
-		{{end}}
-	`)
-	return err
+		{{end}}`,
+		func() calendarData {
+			return calendarData{
+				Feed:     &icalcache.Cache{Config: config},
+				Fileroot: fileroot,
+			}
+		},
+	)
 }

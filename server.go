@@ -207,16 +207,8 @@ func templateHandler(tmpl *template.Template, urlpath string) (http.HandlerFunc,
 	}, nil
 }
 
-// MakeSlug returns a modified version of the given string with [a-zA-Z0-9] retained and a dash in each gap.
-func MakeSlug(s ...string) string {
-	return fields(s, "-")
-}
-
-func MakeTemplateName(s ...string) string {
-	return fields(s, "_")
-}
-
-func fields(strs []string, sep string) string {
+// MakeSlug returns the input with [a-zA-Z0-9] retained and a dash in each gap.
+func MakeSlug(strs ...string) string {
 	var fields []string
 	for _, s := range strs {
 		fields = append(fields, strings.FieldsFunc(s, func(r rune) bool {
@@ -232,5 +224,5 @@ func fields(strs []string, sep string) string {
 			return true
 		})...)
 	}
-	return strings.Join(fields, sep)
+	return strings.Join(fields, "-")
 }
