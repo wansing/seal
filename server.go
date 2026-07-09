@@ -23,6 +23,8 @@ type Error struct {
 }
 
 // handler must handle full paths (including urlpath prefix)
+//
+// map[string]ContentFunc is provided in case the handler reads any content files
 type HandlerGen func(fsys fs.FS, urlpath string, t *template.Template, content map[string]ContentFunc) http.Handler
 
 type Server struct {
