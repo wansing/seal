@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -28,58 +27,77 @@ type postPreview struct {
 	URL    string
 }
 
+type IndexData struct {
+	seal.TemplateData
+	Previews []postPreview
+}
+
+type PostData struct {
+	seal.TemplateData
+	BackURL string
+	Date    string
+}
+
 func (mb *Miniblog) Latest(t *template.Template, urlpath, fileroot string, filecontent []byte) error {
-	return content.ParseWithData(
-		t,
-		`<ul>
+	var text = string(filecontent)
+	if text == "" {
+		text = `<ul>
 			{{range .}}
 				<li id="{{.Anchor}}">
 					<a href="{{.URL}}">{{.Date}} {{.Title}}</a>
 				</li>
 			{{end}}
-		</ul>`,
+		</ul>`
+	}
+
+	return content.ParseWithData(
+		t,
+		text,
 		func() []postPreview {
 			return mb.previews
 		},
 	)
 }
 
-func (mb *Miniblog) MakeHandler(fsys fs.FS, urlpath string, t *template.Template, content map[string]seal.ContentFunc) http.Handler {
-	indexTmpl, _ := t.Clone()
-	indexTmpl.New("main").Parse(`
-		<ul>
+func readTmpl(t *template.Template, fsys fs.FS, filename string, defaultText string) *template.Template {
+	var text = defaultText
+	if fileText, err := fs.ReadFile(fsys, filename); err == nil {
+		text = string(fileText)
+	}
+	t, _ = t.Clone()
+	t.New("main").Parse(text)
+	return t
+}
+
+// MakeHandler reads index.html and post.html (if exist) as "main" templates for index and post views.
+func (mb *Miniblog) MakeHandler(fsys fs.FS, urlpath string, t *template.Template, contentFuncs map[string]seal.ContentFunc) http.Handler {
+	indexTmpl := readTmpl(
+		t,
+		fsys,
+		"index.html",
+		`<ul>
 			{{range .Previews}}
 				<li id="{{.Anchor}}">
 					<a href="{{.URL}}">{{.Date}} {{.Title}}</a>
 				</li>
 			{{end}}
-		</ul>
-	`)
+		</ul>`,
+	)
 
-	postTmpl, _ := t.Clone()
-	postTmpl.New("main").Parse(`
-		<p><a href="{{.BackURL}}">Back to Blog</a></p>
+	postTmpl := readTmpl(
+		t,
+		fsys,
+		"post.html",
+		`<p><a href="{{.BackURL}}">Back to Blog</a></p>
 		<p>{{.Date}}</p>
-		{{template "post" .}}
-	`)
+		{{template "post" .}}`,
+	)
 
 	var postFilenames []string
 	entries, _ := fs.ReadDir(fsys, ".")
 	for _, entry := range entries {
-		ext := filepath.Ext(entry.Name())
-		switch {
-		case entry.IsDir():
-			continue // skip dirs
-		case strings.HasPrefix(entry.Name(), "."):
-			continue // skip hidden files
-		case len(entry.Name()) >= 10 && isoDate.MatchString(entry.Name()[:10]):
+		if !entry.IsDir() && len(entry.Name()) >= 10 && isoDate.MatchString(entry.Name()[:10]) {
 			postFilenames = append(postFilenames, entry.Name())
-		case ext == ".html":
-			// parse template and associate it to index page
-			// not using ParseFS because we want the template name without filename extension
-			filecontent, _ := fs.ReadFile(fsys, entry.Name())
-			fileroot := strings.TrimSuffix(entry.Name(), ext)
-			indexTmpl.New(fileroot).Parse(string(filecontent))
 		}
 	}
 	slices.Sort(postFilenames)
@@ -89,10 +107,7 @@ func (mb *Miniblog) MakeHandler(fsys fs.FS, urlpath string, t *template.Template
 	var previews []postPreview
 
 	mux.HandleFunc("GET "+urlpath+"/", func(w http.ResponseWriter, r *http.Request) {
-		indexTmpl.Execute(w, struct {
-			seal.TemplateData
-			Previews []postPreview
-		}{
+		indexTmpl.Execute(w, IndexData{
 			TemplateData: seal.TemplateData{
 				RequestURL: r.URL,
 				URLPath:    urlpath,
@@ -102,7 +117,7 @@ func (mb *Miniblog) MakeHandler(fsys fs.FS, urlpath string, t *template.Template
 	})
 
 	for _, fn := range postFilenames {
-		contentFunc, ok := content[path.Ext(fn)]
+		contentFunc, ok := contentFuncs[path.Ext(fn)]
 		if !ok {
 			continue
 		}
@@ -126,19 +141,14 @@ func (mb *Miniblog) MakeHandler(fsys fs.FS, urlpath string, t *template.Template
 		})
 
 		mux.HandleFunc("GET "+path.Join(urlpath, fileroot), func(w http.ResponseWriter, r *http.Request) {
-			tmpl.Execute(w,
-				struct {
-					seal.TemplateData
-					BackURL string
-					Date    string
-				}{
-					TemplateData: seal.TemplateData{
-						RequestURL: r.URL,
-						URLPath:    path.Join(urlpath, fileroot),
-					},
-					BackURL: urlpath + "#" + seal.MakeSlug(fileroot),
-					Date:    date,
+			tmpl.Execute(w, PostData{
+				TemplateData: seal.TemplateData{
+					RequestURL: r.URL,
+					URLPath:    path.Join(urlpath, fileroot),
 				},
+				BackURL: urlpath + "#" + seal.MakeSlug(fileroot),
+				Date:    date,
+			},
 			)
 		})
 	}
