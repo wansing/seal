@@ -46,19 +46,19 @@ func AbsHrefSrc(htm, urlpath string) string {
 	return result.String()
 }
 
-func ParseWithData(t *template.Template, filecontent string, dataFunc any) error {
+func ParseWithData(t *template.Template, text string, dataFunc any) error {
 	randomName := "F" + rand.Text() // always start with a letter
 	t.Funcs(template.FuncMap{
 		randomName: dataFunc,
 	})
-	_, err := t.Parse(fmt.Sprintf("{{with %s}}", randomName) + filecontent + "{{end}}")
+	_, err := t.Parse(fmt.Sprintf("{{with %s}}", randomName) + text + "{{end}}")
 	return err
 }
 
 func ParseWithDataFS(t *template.Template, fsys fs.FS, filename string, dataFunc any) error {
-	bs, err := fs.ReadFile(fsys, filename)
+	text, err := fs.ReadFile(fsys, filename)
 	if err != nil {
 		return err
 	}
-	return ParseWithData(t, string(bs), dataFunc)
+	return ParseWithData(t, string(text), dataFunc)
 }
