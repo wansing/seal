@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"html/template"
+	"io"
 	"strings"
 	"text/template/parse"
 
@@ -21,10 +22,11 @@ func Heading(t *template.Template) string {
 }
 
 func heading(htm []byte) string {
-	var tokenizer = html.NewTokenizerFragment(bytes.NewReader(htm), "body")
-	tokenizer.SetMaxBuf(4096) // roughly the maximum number of bytes tokenized
-
-	var bytesRead = 0
+	r := &io.LimitedReader{
+		R: bytes.NewReader(htm),
+		N: 4096,
+	}
+	var tokenizer = html.NewTokenizerFragment(r, "body")
 	var headingTag = ""
 	var result = &strings.Builder{}
 
@@ -47,12 +49,7 @@ func heading(htm []byte) string {
 			}
 			result.Write(tokenizer.Raw())
 		}
-
-		bytesRead += len(tokenizer.Raw())
-		if bytesRead > 4000 {
-			break
-		}
 	}
 
-	return ""
+	return result.String()
 }
